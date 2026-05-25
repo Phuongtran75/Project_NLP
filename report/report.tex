@@ -24,6 +24,9 @@
 \usepackage{multirow}
 \usepackage{tabularx}
 
+% ── Gantt Chart ──
+\usepackage{pgfgantt}
+
 % ── Code Listings ──
 \usepackage{listings}
 \lstset{
@@ -441,7 +444,7 @@ Steering consistently improves CELF across all model--benchmark pairs, as detail
 
 \begin{figure}[ht]
 \centering
-\includegraphics[width=0.6\textwidth]{figure3.png}
+\includegraphics[width=1.0\textwidth]{figure3.png}
 \caption{CELF metric under different steering coefficients $\alpha$. Positive steering reliably reduces localization hallucination; negative steering makes it worse.}
 \label{fig:steering}
 \end{figure}
@@ -499,6 +502,46 @@ As a team, we structured our work to strictly mirror the core phases of the NLP 
 \section{Team Contribution Statement}
 
 The team worked collaboratively under a clear separation of concerns, ensuring continuous contribution and seamless integration into the final repository:
+
+\begin{figure}[ht]
+\centering
+\begin{ganttchart}[
+  x unit=0.55cm,
+  y unit title=0.5cm,
+  y unit chart=0.6cm,
+  vgrid={*1{draw=gray!20}},
+  hgrid={*1{draw=gray!20}},
+  title height=1,
+  title label font=\footnotesize\bfseries,
+  bar label font=\footnotesize,
+  bar height=0.6,
+  group label font=\footnotesize\bfseries\color{MidnightBlue},
+  bar/.append style={fill=MidnightBlue!60},
+  milestone/.append style={fill=red!60},
+]{10}{24}
+  \gantttitle{May 2026}{15} \\
+  \gantttitlelist{10,...,24}{1} \\
+
+  % Task 1
+  \ganttgroup{Task 1 (Bac)}{10}{18} \\
+  \ganttbar{Dataset Loader \& RegEx Parsing}{10}{15} \\
+  \ganttbar{Baseline Evaluation \& Metrics}{15}{18} \\
+
+  % Task 2
+  \ganttgroup{Task 2 (My + Bac)}{13}{20} \\
+  \ganttbar{Hidden State Extraction}{13}{17} \\
+  \ganttbar{PCA Probing \& Clustering}{17}{20} \\
+  \ganttbar[bar/.append style={fill=OliveGreen!60}]{Bac: Review \& Validate PCA}{18}{20} \\
+
+  % Task 3
+  \ganttgroup{Task 3 (Phuong + Bac)}{15}{24} \\
+  \ganttbar{Steering Vector \& EasySteer Setup}{15}{21} \\
+  \ganttbar{Grid Search: Scale \& Layers}{21}{24} \\
+  \ganttbar[bar/.append style={fill=OliveGreen!60}]{Bac: Verify Steering \& Cross-Check}{22}{24}
+\end{ganttchart}
+\caption{Project timeline. Green bars indicate Bac's cross-task supervision activities.}
+\label{fig:gantt}
+\end{figure}
 
 \begin{itemize}[leftmargin=*]
 \item \textbf{Nguyen Ba Thanh Bac (Preprocessing, Pipeline \& Cross-Task Supervision)}: Set up the repository architecture (\texttt{/data/}, \texttt{/scripts/}, \texttt{/report/}). Developed the regex coordinate parser and dataset loaders for POPE, AMBER, MME, and DASH-B. Coded the 2-Stage Conditional Protocol and evaluated baseline performance. Beyond Task 1, Bac served as the cross-task supervisor: he reviewed and validated the PCA probing results in Task~2 to ensure the clustering topology was consistent across different random seeds and layer choices, and he independently verified the steering intervention outputs in Task~3 by cross-checking CELF scores against the baseline to confirm that improvements were genuine and not artifacts of prompt variation.
