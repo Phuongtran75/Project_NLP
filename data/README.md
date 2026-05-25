@@ -1,6 +1,6 @@
 # Dataset Information
 
-This folder contains metadata, format specifications, and download links for the evaluation datasets used in the paper:
+This folder contains metadata, format specifications, and download links for the evaluation datasets used in the report:
 
 > **Know It's Absent, Yet Point Anyway: Cross-Task Semantic Contradictions in Vision-Language Models**
 
