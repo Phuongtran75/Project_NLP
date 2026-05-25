@@ -10,7 +10,7 @@ This repository contains the code, data specifications, and report for our NLP c
 We study a critical failure mode: a VLM correctly answers *"No"* when asked *"Is there a cat in the image?"*, yet still produces a bounding box when asked *"Point to the cat."* The model **knows** the object is absent but **acts** as if it is present — a semantic contradiction with dangerous implications for downstream systems (robotics, autonomous agents, medical localization).
 
 <p align="center">
-  <img src="figure1.png" width="600"/>
+  <img src="figures/figure1.png" width="600"/>
   <br>
   <em>Figure 1: Existence–Localization Contradiction — the model correctly denies a person's existence, then draws a bounding box for it anyway.</em>
 </p>
@@ -101,16 +101,14 @@ Project_NLP/
 ├── report/
 │   ├── report.md             # Full report in Markdown
 │   ├── report.pdf            # Compiled PDF report
-│   ├── report.docx           # Compiled DOCX report
+│   └── report.docx           # Compiled DOCX report
+├── figures/
 │   ├── figure1.png           # Contradiction example figure
 │   ├── figure2.png           # PCA hidden-state projection
 │   └── figure3.png           # Steering coefficient analysis
 ├── presentation/
 │   ├── VLM_Contradictions_Presentation.tex  # Beamer presentation source
 │   └── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
-├── figure1.png               # Contradiction example (root copy)
-├── figure2.png               # PCA projection (root copy)
-├── figure3.png               # Steering analysis (root copy)
 ├── paper_text.txt            # Reference paper text
 ├── project_requirements.txt  # Course requirements specification
 └── .gitignore
