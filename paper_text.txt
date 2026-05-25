@@ -1,0 +1,2288 @@
+--- PAGE 1 ---
+Know It’s Absent, Yet Point Anyway: Cross-Task Semantic Contradictions
+in Vision-Language Models
+Anonymous ACL submission
+Abstract
+001
+Vision-language models (VLMs) increasingly
+002
+support both visual question answering and spa-
+003
+tial grounding, yet their behavior across these
+004
+tasks can be inconsistent. In this paper, we
+005
+identify Existence–Localization Contradic-
+006
+tion, a failure mode where a VLM correctly
+007
+recognizes that a queried object is absent from
+008
+an image, but still produces a hallucinated local-
+009
+ization when asked to ground the same referent.
+010
+We introduce a conditional evaluation protocol
+011
+that pairs existence questions with downstream
+012
+localization prompts over the same image and
+013
+target expression, isolating cases where mod-
+014
+els know the referent is absent but fail to carry
+015
+this judgment into grounding. Experiments on
+016
+strong VLMs show that such contradictions are
+017
+common, revealing a gap between perception,
+018
+abstention, and localization. We further show
+019
+that lightweight interventions can substantially
+020
+reduce these failures. Our findings highlight
+021
+that reliable VLM grounding requires not only
+022
+accurate recognition, but also consistent refusal
+023
+to localize absent referents.
+024
+1
+Introduction
+025
+Vision-language models (VLMs) (Liu et al., 2024;
+026
+Team et al., 2025; Zhu et al., 2025; Wang et al.,
+027
+2025; Bai et al., 2025b,a) can now follow natural-
+028
+language instructions over images and increasingly
+029
+support spatial outputs such as points and bound-
+030
+ing boxes. This makes them useful not only for
+031
+visual question answering, but also as language-
+032
+conditioned grounding modules in downstream sys-
+033
+tems. As a result, their reliability matters not only
+034
+at the answer level, but also at the level of spatial
+035
+commitments.
+036
+Prior work has shown that VLMs often hallu-
+037
+cinate entities when language presupposes their
+038
+existence.
+Antidote (Wu et al., 2025) studies
+039
+counterfactual presupposition questions, JBA (Li
+040
+et al., 2025) evaluates false-premise recognition,
+041
+and Ground-V (Zong et al., 2025) considers hallu-
+042
+cinated references in complex grounding settings.
+043
+However, these settings do not directly test whether
+044
+a model that has already recognized object absence
+045
+can preserve that judgment when later asked to
+046
+localize the same referent.
+047
+We study this gap through a simple but important
+048
+failure case. A VLM may correctly answer “No”
+049
+to the question “Is there a cat in the image?”, yet
+050
+still return a bounding box when later asked “Point
+051
+to the cat.” We define this failure as Existence–
+052
+Localization Contradiction.
+053
+Unlike standard no-target grounding or false-
+054
+premise recognition errors, Existence–Localization
+055
+Contradiction captures whether a model preserves
+056
+an absence judgment under a downstream local-
+057
+ization request. The model semantically rejects
+058
+an entity, yet operationally commits to it through
+059
+localization output.
+060
+This semantic contradiction not only highlights a
+061
+violation of logical consistency between a model’s
+062
+semantic belief and its subsequent action commit-
+063
+ment, but also exposes a critical risk in multimodal
+064
+systems where localization serves as actionable
+065
+grounding evidence. A hallucinated bounding box
+066
+for a nonexistent referent can propagate false ev-
+067
+idence and trigger incorrect downstream actions.
+068
+We therefore characterize hallucinated localization
+069
+as a form of actionable hallucination. Such fail-
+070
+ures are particularly critical in robotics, medical lo-
+071
+calization, autonomous agents, retrieval pipelines,
+072
+and grounding-based tool use, where localization
+073
+outputs directly influence system behavior. Re-
+074
+liable grounding thus requires not only accurate
+075
+perception, but also consistent transfer of absence
+076
+information across task formats.
+077
+To measure this behavior, we propose a condi-
+078
+tional evaluation protocol. For each image and tar-
+079
+get expression, we first ask an existence question,
+080
+then evaluate localization only when the model has
+081
+correctly judged the target to be absent. This iso-
+082
+1
+
+--- PAGE 2 ---
+lates the contradiction of interest: the model knows
+083
+the referent is absent, yet still produces a non-null
+084
+spatial output.
+085
+We use this setting to answer two questions: (1)
+086
+how often do VLMs change from a correct absence
+087
+judgment to an incorrect non-null localization, (2)
+088
+how can these contradictions be reduced without
+089
+harming localization performance when the ref-
+090
+erent is present? To investigate the mechanism
+091
+behind this failure, we analyze model hidden states
+092
+under existence and localization prompts, and we
+093
+use these observations to motivate a lightweight
+094
+inference-time intervention. Our results suggest
+095
+that reliable VLM grounding requires not only rec-
+096
+ognizing when an object is absent, but also carrying
+097
+that judgment into downstream localization deci-
+098
+sions.
+099
+2
+Related Work
+100
+Hallucination in VLMs.
+Hallucination in vision-
+101
+language models (VLMs) has been widely studied
+102
+across several related settings. First, object-level
+103
+hallucination evaluates whether models incorrectly
+104
+affirm objects that are not present in the image.
+105
+POPE (Li et al., 2023b) shows that large VLMs
+106
+often hallucinate objects, especially when they are
+107
+plausible given the scene context or co-occurring
+108
+categories. More recent work studies a stronger
+109
+object-absence setting by explicitly removing ob-
+110
+jects from images and testing whether models still
+111
+“see” the removed entities (He et al., 2025). Sec-
+112
+ond, no-target grounding studies cases where a
+113
+referring expression has no valid visual referent.
+114
+RECANTFormer (Hemanthage et al., 2024) inves-
+115
+tigates referring expression comprehension under
+116
+varying numbers of valid referents, including no-
+117
+target cases , while GREx (Ding et al., 2026) gener-
+118
+alizes referring expression comprehension, segmen-
+119
+tation, and generation to single-target, multi-target,
+120
+and no-target settings. Similarly, (Yin et al., 2025)
+121
+propose the ROD dataset to help VLMs reject
+122
+non-existent objects under grounding queries ef-
+123
+fectively. Third, false-premise and counterfactual-
+124
+presupposition work examines whether multimodal
+125
+models can reject invalid assumptions expressed
+126
+in language.
+Antidote (Wu et al., 2025) high-
+127
+lights VLM failures on counterfactual presuppo-
+128
+sition questions, and JBA (Li et al., 2025) further
+129
+studies false-premise recognition in multimodal
+130
+question answering. Together, these works show
+131
+that absent or invalid referents remain a persistent
+132
+challenge for VLMs. However, they mainly fo-
+133
+cus on existence recognition, premise rejection, or
+134
+whether the final grounding output is null. Our
+135
+work instead asks whether a model that has already
+136
+correctly denied an object’s existence will neverthe-
+137
+less produce a non-null localization for that same
+138
+object.
+139
+Consistency in VLMs.
+Consistency has recently
+140
+emerged as an important dimension of VLM robust-
+141
+ness and trustworthiness. MM-R3 shows that mod-
+142
+els can achieve competitive accuracy while still ex-
+143
+hibiting substantial inconsistency under rephrasing,
+144
+restyling, and context perturbations (Chou et al.,
+145
+2025). Similar observations have been made in
+146
+broader work on multimodal consistency and ro-
+147
+bustness (Zhang et al., 2024). Our work shares
+148
+this motivation, but studies a narrower form of in-
+149
+consistency: a contradiction between two outputs
+150
+for the same image and the same queried referent,
+151
+namely an existence judgment and a localization
+152
+commitment.
+153
+Activation steering.
+Many hallucination mitiga-
+154
+tion methods reduce unsupported outputs through
+155
+contrastive decoding, decoding-time penalties, or
+156
+post-hoc correction (Leng et al., 2023; Huang et al.,
+157
+2024; Zhou et al., 2024; Yin et al., 2024). Or-
+158
+thogonal to these approaches, activation steering
+159
+methods intervene directly in hidden representa-
+160
+tion space without updating model parameters. A
+161
+common construction is the difference-in-means
+162
+estimator, where a steering direction is computed
+163
+from the mean activation of desired examples mi-
+164
+nus that of undesired examples. This idea appears
+165
+in Activation Addition and Contrastive Activation
+166
+Addition (Turner et al., 2024; Rimsky et al., 2024),
+167
+as well as in truthfulness and safety interventions
+168
+that identify linear directions associated with truth-
+169
+ful responses or refusal behavior (Li et al., 2023a;
+170
+Marks and Tegmark, 2024; Arditi et al., 2024). Re-
+171
+cent VLM work further suggests that hallucination-
+172
+related behaviors are encoded in intermediate hid-
+173
+den states and can be reduced through inference-
+174
+time intervention (Su et al., 2025). Building on
+175
+this line of work, we construct a DiffMean steering
+176
+vector from contrastive hallucinated and visually
+177
+grounded activations, and apply it at inference time
+178
+to encourage absence-consistent localization.
+179
+2
+
+--- PAGE 3 ---
+ 
+Is there a person in
+the image?​
+No, there is no person in the
+image. The image shows a
+small white puppy lying on a
+surface next to a newspaper
+and a mug.​
+Locate a person in the
+image and identify its
+bounding box if it exists.​
+```json​
+[​
+        {"bbox_2d": [468, 270,
+560, 312], "label": "person"}​
+]​
+Existence query
+Localization​ query
+Figure 1: An example of Existence–Localization Contradiction.
+3
+Existence–Localization Contradiction
+180
+3.1
+Problem Definition
+181
+We study a failure mode that we call Existence–
+182
+Localization Contradiction. Given an image v
+183
+and an object query p, we consider two queries:
+184
+(1) an existence query that asks whether object
+185
+o is present in the image, and (2) a localization
+186
+query that asks the model to point to, or otherwise
+187
+localize, object o in the same image. For example,
+188
+in Figure 1, the top prompt asks about the existence
+189
+of a person, while the bottom prompt asks for the
+190
+exact position of a person.
+191
+In this paper, we focus exclusively on object
+192
+absence, i.e., a setting in which the queried object
+193
+does not appear in the image at all. A trustwor-
+194
+thy model should satisfy two conditions simultane-
+195
+ously:
+196
+1. it should correctly deny the presence of the
+197
+queried object at the existence stage; and
+198
+2. it should abstain from localization, or return a
+199
+null localization, at the localization stage.
+200
+We say that a model exhibits an Existence–
+201
+Localization Contradiction if it (1) correctly pre-
+202
+dicts that the queried object is absent, yet (2) still
+203
+produces a non-null localization for that same ob-
+204
+ject. Figure 1 demonstrates the phenomenon: un-
+205
+der the object existence setting, the model correctly
+206
+recognizes that no person is present in the image.
+207
+However, in the object location setting, the model
+208
+still predicts the location of a person. This distinc-
+209
+tion is important. A model may fail because it does
+210
+not recognize object absence in the first place; that
+211
+is, an object recognition or perception failure. By
+212
+contrast, the contradiction we study arises when
+213
+the model already knows the object is absent but
+214
+still commits to a spatial prediction.
+215
+3.2
+Conditional Evaluation Protocol
+216
+We evaluate the existence–localization contradic-
+217
+tion using a two-stage conditional protocol. The
+218
+goal of this protocol is to test whether a model that
+219
+correctly recognizes the absence of a queried refer-
+220
+ent can preserve this judgment when subsequently
+221
+asked to produce a spatial grounding output.
+222
+Let
+223
+D = {(vi, oi, ei)}N
+i=1
+224
+denote a set of image–object pairs, where vi is an
+225
+image, oi is a queried object, and ei ∈{0, 1} is the
+226
+ground-truth existence label. We define ei = 1 if
+227
+oi is present in vi, and ei = 0 otherwise. Since our
+228
+failure mode concerns object absence, we focus on
+229
+the negative subset:
+230
+N = {i : ei = 0}.
+231
+For each pair, we query the same model with two
+232
+task formats: an existence prompt and a localiza-
+233
+tion prompt. The existence prompt asks whether
+234
+the queried object is present in the image, while
+235
+the localization prompt asks the model to return
+236
+a spatial grounding output for the same queried
+237
+object.
+238
+Stage 1:
+Existence Recognition.
+For each
+239
+image–object pair (vi, oi), we first issue an exis-
+240
+tence query using a template TE:
+241
+qE
+i = TE(oi).
+242
+The model response qE
+i is parsed into a binary ex-
+243
+istence prediction
+244
+ˆei ∈{0, 1},
+245
+3
+
+--- PAGE 4 ---
+where ˆei = 1 indicates that the model predicts the
+246
+queried object as present, and ˆei = 0 indicates that
+247
+the model predicts it as absent.
+248
+This stage evaluates whether the model can
+249
+explicitly determine the existence status of the
+250
+queried object before any localization request is
+251
+considered. For negative examples i ∈N, the
+252
+model correctly recognizes absence when:
+253
+ˆei = 0.
+254
+Stage 2: Localization under Absence.
+We then
+255
+query the same model on the same image–object
+256
+pair with a localization template TL:
+257
+qL
+i = TL(oi).
+258
+The localization response qL
+i is parsed into a binary
+259
+localization decision
+260
+ˆℓi ∈{0, 1},
+261
+where ˆℓi = 1 indicates that the model returns a
+262
+non-null spatial prediction, and ˆℓi = 0 indicates
+263
+abstention or a null localization.
+264
+In our experiments, a non-null localization corre-
+265
+sponds to a predicted bounding box. If the response
+266
+contains a parseable bounding box, we set ˆℓi = 1.
+267
+If the response contains no parseable bounding box,
+268
+or explicitly states that the queried object is absent
+269
+and therefore cannot be localized, we set ˆℓi = 0.
+270
+3.3
+Evaluation Metrics
+271
+We report three metrics: Existence Accuracy, Null
+272
+Localization Precision, and Conditional Existence–
+273
+Localization Faithfulness.
+274
+Existence Accuracy.
+This metric measures
+275
+whether the model correctly predicts the presence
+276
+or absence of the queried object, evaluating the
+277
+model’s original object-level recognition ability:
+278
+EA = 1
+N
+N
+X
+i=1
+1[ˆei = ei].
+279
+Null Localization Precision.
+A simple but in-
+280
+correct way to mitigate the Existence–Localization
+281
+Contradiction is to return null localization—output
+282
+no bounding box—regardless of the object’s pres-
+283
+ence. To measure the reliability of the model de-
+284
+cision, we additionally define Null Localization
+285
+Precision as the fraction of localization rejection
+286
+that occurs on truly negative examples:
+287
+NLP =
+PN
+i=1 1[ei = 0]1[ˆℓi = 0]
+PN
+i=1 1[ˆℓi = 0]
+.
+288
+A higher NLP indicates that if the model does not
+289
+provide localization, the object is more likely to be
+290
+absent. When the denominator is zero, i.e., when
+291
+the model never abstains from localization queries,
+292
+we define NLP = 0.
+293
+Conditional
+Existence–Localization
+Faith-
+294
+fulness.
+Our primary metric is Conditional
+295
+Existence–Localization
+Faithfulness
+(CELF),
+296
+which measures whether the model preserves its
+297
+correct absence judgment when asked to localize
+298
+the same queried object.
+Specifically, CELF
+299
+measures how often the model returns a null
+300
+localization given that it correctly recognizes the
+301
+object’s absence under the existence prompt:
+302
+CELF =
+P
+i∈N 1[ˆei = 0]1[ˆℓi = 0]
+P
+i∈N 1[ˆei = 0]
+.
+303
+Equivalently, CELF estimates:
+304
+Pr(ˆℓi = 0 | ei = 0, ˆei = 0).
+305
+A higher CELF indicates stronger existence–
+306
+localization faithfulness. In particular, CELF = 1
+307
+means that whenever the model correctly predicts
+308
+the queried object as absent, it also refuses to lo-
+309
+calize it. Conversely, CELF = 0 means that even
+310
+when the model correctly recognizes absence, it
+311
+still always returns a non-null localization.
+312
+When the denominator is zero, i.e., when a
+313
+model never correctly predicts absence on the neg-
+314
+ative subset, CELF is undefined and excluded from
+315
+aggregate comparisons.
+316
+Relation to Standard Evaluations
+This protocol
+317
+differs from two related evaluation settings. First,
+318
+it differs from false-premise recognition because
+319
+we do not only test whether the model can reject an
+320
+invalid linguistic presupposition. Instead, we test
+321
+whether the model preserves this rejection when
+322
+the task format changes from existence recognition
+323
+to localization. A model may correctly answer that
+324
+an object is absent, yet still produce a bounding box
+325
+when later asked to localize the same object. Sec-
+326
+ond, it differs from standard no-target grounding
+327
+evaluation. CELF is conditioned on cases where
+328
+the model has already correctly recognized absence.
+329
+This conditioning isolates a stricter form of consis-
+330
+tency: whether the model’s localization behavior
+331
+remains faithful to its own prior absence judgment.
+332
+4
+
+--- PAGE 5 ---
+30
+20
+10
+0
+10
+20
+30
+PC1
+10
+5
+0
+5
+10
+15
+20
+PC2
+Existence prompt
+Localization prompt: e = 0, l = 1
+Localization prompt: e = 0, l = 0
+Figure 2: PCA projection of hidden states.
+4
+Mitigating Existence–Localization
+333
+Contradiction by Light-weight Steering
+334
+4.1
+Hidden Space Analysis
+335
+To better understand the model’s behavior, we ana-
+336
+lyze the feature space on different scenarios. For
+337
+each sample, we collect the hidden states at the
+338
+final token position under the existence prompt and
+339
+the localization prompt. We project those vectors
+340
+into a two-dimensional space using PCA and visu-
+341
+alize the hidden states of Qwen2.5-VL-7B-Instruct
+342
+in Figure 2.
+343
+First, we observe that the hidden states on ex-
+344
+istence prompts form a distinct cluster than the
+345
+hidden states on localization prompts. This sep-
+346
+aration suggests that the model enters different
+347
+representational regimes when solving those two
+348
+tasks and might not utilize well the benefits of
+349
+multi-task learning. We further zoom into the fea-
+350
+ture space of localization prompts and inspect two
+351
+cases: samples where the model incorrectly re-
+352
+turns the bounding-box for non-existence object
+353
+(e = 0, ˆl = 1), and samples where the model cor-
+354
+rectly realizes the object’s absence (e = 0, ˆl = 0).
+355
+Figure 2 demonstrates that these two groups are
+356
+also separable and form two distinguishable re-
+357
+gions in the feature space, implying that the model
+358
+internally encodes the signal that refuses to answer
+359
+the localization prompt. More importantly, the re-
+360
+gion of correct null-localization responses is closer
+361
+to the region of responses to existence prompts.
+362
+This observation confirms our hypothesis: Exis-
+363
+tence–Localization Contradiction happens due to
+364
+the lack of sharing knowledge in multi-task learn-
+365
+ing; in the case of the correct null-localization, the
+366
+model utilizes information about object’s existence.
+367
+The Existence–Localization Contradiction
+arises from limited knowledge sharing be-
+tween existence prediction and object local-
+ization.
+368
+4.2
+Lightweight Steering-Based Mitigation
+369
+Section 4.1 suggests that nudging the hidden states
+370
+towards the existence prediction region allows
+371
+the model to leverage information from the ex-
+372
+istence prediction task and correctly realize the
+373
+object’s absence.
+In this paper, we propose a
+374
+lightweight steering-based intervention to mitigate
+375
+object-localization hallucinations. Our method fol-
+376
+lows the general latent-space steering paradigm of
+377
+ASD (Su et al., 2025), which estimates an inter-
+378
+vention direction from contrastive paired outputs
+379
+and applies that direction at test time to shift model
+380
+representations toward more faithful behavior.
+381
+We construct a paired intervention set
+382
+P = {(vi, oi, qL
+i , yloc
+i , yabs
+i
+)}M
+i=1,
+383
+where vi denotes an image, oi denotes the queried
+384
+object, and qL
+i is the localization query. For each
+385
+query, yloc
+i
+is a response that yields a predicted
+386
+bounding-box, whereas yabs
+i
+is an response that
+387
+explicitly states that the queried object does not
+388
+exist. The pair (yloc
+i , yabs
+i
+) is designed to capture
+389
+the contrast between hallucination-prone localiza-
+390
+tion behavior and evidence-consistent abstention
+391
+behavior under the same image–object query. This
+392
+choice is also consistent with our evaluation pro-
+393
+tocol, in which the desired behavior on object-
+394
+absence cases is null localization rather than non-
+395
+null spatial grounding.
+396
+We estimate the steering direction from hidden-
+397
+state differences between contrastive paired outputs.
+398
+For each pair, we run the model on both responses
+399
+and extract the hidden representation at transformer
+400
+layer l. Let
+401
+h(l)
+i,loc
+and
+h(l)
+i,abs
+402
+denote the hidden states associated with the local-
+403
+ization and abstention responses, respectively. We
+404
+then compute a contrastive difference vector
+405
+∆h(l)
+i
+= h(l)
+i,abs −h(l)
+i,loc.
+406
+Intuitively, ∆h(l)
+i
+captures the latent shift
+from non-faithful localization behavior toward
+abstention-consistent behavior. Given the set of
+5
+
+--- PAGE 6 ---
+Table 1: Performance evaluation of our method against baselines.
+Model
+Type
+POPE
+AMBER
+MME (object existence)
+DASH-B
+EA ↑
+NLP ↑
+CELF ↑
+EA ↑
+NLP ↑
+CELF ↑
+EA ↑
+NLP ↑
+CELF ↑
+EA ↑
+NLP ↑
+CELF ↑
+Qwen2.5-VL-7B-Instruct
+Base
+83.7
+94.7
+10.4
+95.4
+100.0
+28.6
+100.0
+100.0
+20.0
+74.3
+100.0
+2.8
+Steered
+82.2-1.5
+94.8+0.1
+41.6+31.2
+97.2+1.8 100.0+0.0
+53.1+24.5
+95.0-5.0
+100.0+0.0
+90.0+70.0
+76.4+2.1
+95.0-5.0
+13.5+10.7
+Qwen3-VL-8B-Instruct
+Base
+89.4
+95.2
+15.8
+90.2
+100.0
+38.2
+98.3
+100.0
+50.0
+74.5
+100.0
+2.7
+Steered
+88.4-1.0
+96.1+0.9
+50.0+34.2
+92.7+2.5 100.0+0.0
+65.3+27.1
+98.3+0.0 100.0+0.0
+80.0+30.0
+75.7+1.2
+92.3-7.7
+13.1+10.4
+InternVL3-8B
+Base
+90.8
+0.0
+0.0
+92.3
+0.0
+0.0
+98.3
+0.0
+0.0
+67.6
+0.0
+0.0
+Steered
+90.4-0.4
+84.6+84.6
+72.9+72.9
+92.6+0.3 100.0+100.0 55.0+55.0
+98.3+0.0
+79.3+79.3
+76.7+76.7
+69.8+2.2
+68.9+68.9
+53.3+53.3
+InternVL3.5-8B
+Base
+86.7
+0.0
+0.0
+88.5
+0.0
+0.0
+100.0
+0.0
+0.0
+68.9
+0.0
+0.0
+Steered
+85.2-1.5
+46.0+46.0
+20.6+20.6
+88.2-0.3
+100.0+100.0 33.4+33.4 100.0+0.0
+51.9+51.9
+46.7+46.7
+71.2+2.3
+33.9+33.9
+15.6+15.6
+difference vectors {∆h(l)
+i }M
+i=1, we compute the
+steering vector as the mean of difference across
+the dataset
+s(l) = 1
+M
+M
+X
+i=1
+∆h(l)
+i
+At inference time, we inject the steering direc-
+407
+tion additively into the hidden state at layer l:
+408
+˜h(l) = h(l) + αs(l),
+409
+where α ∈R controls the intervention strength.
+410
+Our method performs the intervention at only one
+411
+transformer layer. This makes the intervention
+412
+parameter-free, localized, and inference-time ef-
+413
+ficient, while still allowing the model to be steered
+414
+away from contradiction-prone representations.
+415
+Since the effectiveness of steering depends on
+416
+both the intervention location and the intervention
+417
+strength, we perform a grid search over the tar-
+418
+get layer l and the scaling coefficient α. The final
+419
+configuration is selected based on validation per-
+420
+formance, with priority given to improving Condi-
+421
+tional Existence–Localization Faithfulness (CELF)
+422
+and reducing contradiction cases, while preserv-
+423
+ing the model’s utility on standard localization ex-
+424
+amples. This objective directly matches our con-
+425
+ditional evaluation framework, where the central
+426
+goal is not merely to suppress localization outputs
+427
+in general, but to ensure that localization behavior
+428
+remains faithful to the model’s own correct absence
+429
+judgment.
+430
+5
+Experimental Results
+431
+5.1
+Implementation Details
+432
+We conduct experiments on four vision-language
+433
+models, namely Qwen2.5-VL-7B-Instruct (Bai
+434
+et al., 2025b), Qwen3-VL-8B-Instruct, InternVL3-
+435
+8B (Zhu et al., 2025), and InternVL3.5-8B (Wang
+436
+et al., 2025). We evaluate these models on four
+437
+object-existence and hallucination-related bench-
+438
+marks: POPE (Li et al., 2023b), AMBER on the
+439
+object existence subset (Wang et al., 2024), MME
+440
+on the object existence subset (Fu et al., 2026), and
+441
+DASH-B (Augustin et al., 2025). For each model,
+442
+we construct a paired set of 100 examples to es-
+443
+timate the steering direction. We use EasySteer
+444
+(Xu et al., 2025) to create steer vectors. We then
+445
+apply the steering vector at inference time through
+446
+an additive intervention on the hidden state. For
+447
+each model, we perform a grid search over the in-
+448
+tervention layer l and the scaling coefficient α in
+449
+order to identify the most effective steering con-
+450
+figuration. The full search space and the selected
+451
+values of α and layer for each model are provided
+452
+in Appendix A. In term of prompt settings, for ex-
+453
+istence recognition, we use the original prompts
+454
+provided by each benchmark. For localization, we
+455
+design model-specific prompt templates, since dif-
+456
+ferent models require different prompting formats
+457
+to reliably produce spatial grounding outputs. The
+458
+prompt can be found in Appendix B. We then evalu-
+459
+ate each model under the conditional protocol, and
+460
+report Existence Accuracy (EA), Null Localiza-
+461
+tion Precision (NLP), and Conditional Existence–
+462
+Localization Faithfulness (CELF).
+463
+5.2
+VLMs Suffer from Existence–Localization
+464
+Contradiction
+465
+Table 1 reveals a consistent pattern across models
+466
+and datasets. Although all models achieve rela-
+467
+tively strong existence recognition performance,
+468
+this ability does not transfer reliably to the down-
+469
+stream localization setting. In particular, EA is
+470
+generally high across benchmarks, reaching above
+471
+90.0 on several settings and even 100 on MME for
+472
+Qwen2.5-VL-7B-Instruct and InternVL3.5-8B-HF.
+473
+However, both NLP and CELF remain strikingly
+474
+low in most cases, indicating that the models fre-
+475
+quently produce non-null localization outputs even
+476
+when they should abstain.
+477
+6
+
+--- PAGE 7 ---
+-0.8
+-0.5
+-0.2
+0.0
+0.8
+1.0
+1.2
+Scale
+0
+20
+40
+60
+80
+100
+CELF
+Qwen2.5-VL-7B-Instruct
+AMBER
+DASH_B
+MME
+POPE
+-0.3
+-0.2
+-0.1
+0.0
+0.6
+0.8
+1.0
+Scale
+0
+10
+20
+30
+40
+50
+60
+70
+80
+CELF
+Qwen3-VL-8B-Instruct
+AMBER
+DASH_B
+MME
+POPE
+-0.8
+-0.5
+-0.2
+0.0
+0.3
+0.5
+0.7
+Scale
+0
+10
+20
+30
+40
+50
+60
+70
+80
+CELF
+InternVL3-8B
+AMBER
+DASH_B
+MME
+POPE
+-0.8
+-0.5
+-0.2
+0.0
+0.8
+1.5
+1.6
+Scale
+0
+10
+20
+30
+40
+CELF
+InternVL3.5-8B
+AMBER
+DASH_B
+MME
+POPE
+Figure 3: Model performance with different steering coefficients.
+This discrepancy is especially pronounced for
+478
+the InternVL family. Despite strong EA across
+479
+all four benchmarks, both InternVL3-8B-HF and
+480
+InternVL3.5-8B-HF obtain zero NLP and zero
+481
+CELF on every dataset. In other words, whenever
+482
+these models are asked to localize an absent object,
+483
+they never abstain, even in cases where they can
+484
+correctly recognize that the queried object is absent
+485
+in the existence stage. This is a particularly strong
+486
+form of existence–localization contradiction.
+487
+The Qwen models exhibit slightly better condi-
+488
+tional behavior, but the overall trend remains the
+489
+same. Qwen2.5-VL-7B-Instruct and Qwen3-VL-
+490
+8B-Instruct achieve non-zero NLP and CELF on
+491
+all benchmarks, with the best results observed on
+492
+MME object existence and AMBER. Even so, their
+493
+CELF scores remain far below their corresponding
+494
+EA scores For example, Qwen3-VL-8B-Instruct
+495
+reaches an EA of 98.3 on MME, but its CELF
+496
+is only 50.0; similarly, on DASH-B, both Qwen
+497
+models obtain EA around 74 while CELF remains
+498
+below 3. These results show that correct absence
+499
+recognition alone is insufficient to guarantee faith-
+500
+ful localization behavior.
+501
+Overall, the baseline results support the central
+502
+claim of this paper: current vision–language mod-
+503
+els may correctly determine that an object is ab-
+504
+sent, yet still fail to preserve that judgment when
+505
+the task is reformulated as localization. This gap
+506
+between recognition and grounded action is sys-
+507
+tematic across architectures and benchmarks, and
+508
+motivates the mitigation approach introduced in the
+509
+next section.
+510
+5.3
+Steering Vector Mitigates
+511
+Existence–Localization Contradiction
+512
+As shown in Table 1, steering consistently im-
+513
+proves CELF across all model–benchmark pairs,
+514
+while leaving EA and NLP largely unchanged. For
+515
+the Qwen models, the gains are substantial. For
+516
+Qwen2.5-VL-7B-Instruct, CELF increases from
+517
+10.4 to 41.6 on POPE, from 28.6 to 51.3 on AM-
+518
+BER, from 20.0 to 90.0 on MME object existence,
+519
+and from 2.8 to 13.5 on DASH-B. Qwen3-VL-8B-
+520
+Instruct shows a similar pattern, with CELF im-
+521
+proving from 15.8 to 50.0 on POPE, from 38.2 to
+522
+65.3 on AMBER, from 50.0 to 80.0 on MME ob-
+523
+ject existence, and from 2.7 to 13.1 on DASH-B.
+524
+These results indicate that steering makes the Qwen
+525
+models substantially more likely to preserve a cor-
+526
+rect absence judgment when subsequently asked to
+527
+localize the same object.
+528
+The effect is especially pronounced for the
+529
+InternVL models.
+Both InternVL3-8B and
+530
+InternVL3.5-8B obtain 0 CELF in the base set-
+531
+ting across all benchmarks, indicating a complete
+532
+lack of conditional abstention behavior: even when
+533
+the models correctly answer the existence ques-
+534
+tion, they still produce incorrect bounding boxes
+535
+for non-existent objects. After steering, InternVL3-
+536
+8B reaches 72.9 CELF on POPE, 55.0 on AMBER,
+537
+76.7 on MME object existence, and 53.3 on DASH-
+538
+B. InternVL3.5-8B also improves from zero to
+539
+20.6, 33.4, 46.7, and 15.6 on the same benchmarks,
+540
+respectively. These improvements show that steer-
+541
+ing can induce substantial existence–localization
+542
+faithfulness even in models that initially exhibit no
+543
+such behavior.
+544
+Overall, the consistent CELF improvements
+545
+show that steering directly addresses the core fail-
+546
+ure mode targeted by our method: models no longer
+547
+simply recognize absence in the existence stage, but
+548
+are also more likely to act consistently with that
+549
+judgment during localization.
+550
+Causal effect of the steering vector.
+We conduct
+551
+more in-depth analysis to confirm the role of the
+552
+steering vector in Section 4.2. Figure 3 reports the
+553
+CELF metric when applying the steering vector
+554
+with different coefficients. Overall, we observe a
+555
+positive correlation between steering coefficients
+556
+and CELF. Positive steering reliably reduces local-
+557
+7
+
+--- PAGE 8 ---
+ization hallucination, and higher coefficients yield
+558
+better CELF. Similarly, negative steering consis-
+559
+tently decreases CELF and makes the model return
+560
+hallucinated bounding boxes. This result confirms
+561
+that our steering vector causally controls the ability
+562
+to recognize an object’s absence under localization
+563
+prompts.
+564
+6
+Conclusion
+565
+We introduced Existence–Localization Contra-
+566
+diction, a failure mode in which vision-language
+567
+models correctly recognize that a queried object
+568
+is absent from an image but still produce a non-
+569
+null localization for that nonexistent referent. To
+570
+study this gap between absence recognition and
+571
+grounded action, we proposed a conditional evalu-
+572
+ation protocol that pairs existence verification with
+573
+downstream localization under the same image–
+574
+query setting. Our experiments show that this con-
+575
+tradiction is common even among strong VLMs:
+576
+models may deny an object’s presence in text while
+577
+still assigning it a bounding box, sometimes with
+578
+high confidence. This suggests that localization
+579
+prompts can weaken or override prior absence judg-
+580
+ments, leading to actionable visual hallucinations.
+581
+At the same time, our intervention results show
+582
+that lightweight changes can substantially reduce
+583
+such contradictions while largely preserving lo-
+584
+calization performance on positive cases. More
+585
+broadly, our findings underscore the importance
+586
+of rigorously evaluating hallucinations in general,
+587
+as well as other model capabilities in particular,
+588
+rather than relying solely on question-answering
+589
+performance. Specifically, this need is most salient
+590
+in task-conditioned settings, where models must
+591
+translate their perceptual understanding into precise
+592
+and effective actions. Reliable visual grounding,
+593
+therefore, requires not only accurate recognition
+594
+and localization, but also consistency between what
+595
+a model knows about a scene and the actions it
+596
+takes. As VLMs are increasingly used in systems
+597
+where localization outputs guide decisions or phys-
+598
+ical interactions, preserving absence judgments is
+599
+essential for trustworthy multimodal deployment.
+600
+Limitations
+601
+This work focuses on a specific form of ground-
+602
+ing inconsistency, where a vision-language model
+603
+correctly recognizes that a queried object is ab-
+604
+sent but still produces a non-null localization. As
+605
+a result, our evaluation does not cover all types
+606
+of grounding errors, such as ambiguous references,
+607
+partial occlusion, attribute-level grounding, relation
+608
+grounding, or cases where the object is present but
+609
+visually difficult to distinguish. Our experiments
+610
+are also limited to a small set of open-source VLMs
+611
+and object-existence-oriented benchmarks, so the
+612
+findings may not fully generalize to proprietary
+613
+models, domain-specific systems, or more complex
+614
+real-world multimodal interactions. Finally, our
+615
+mitigation relies on a lightweight steering mecha-
+616
+nism that requires validation-based selection of the
+617
+intervention layer and coefficient; while effective
+618
+in our setting, it may depend on the model archi-
+619
+tecture and evaluation distribution, and stronger
+620
+steering could risk encouraging over-abstention in
+621
+unseen scenarios.
+622
+References
+623
+Andy Arditi, Oscar Obeso, Aaquib Syed, Daniel Paleka,
+624
+Nina Panickssery, Wes Gurnee, and Neel Nanda.
+625
+2024. Refusal in language models is mediated by
+626
+a single direction. In Advances in Neural Informa-
+627
+tion Processing Systems, volume 37, pages 136037–
+628
+136083. Curran Associates, Inc.
+629
+Maximilian Augustin, Yannic Neuhaus, and Matthias
+630
+Hein. 2025.
+Dash:
+Detection and assessment
+631
+of systematic hallucinations of vlms.
+Preprint,
+632
+arXiv:2503.23573.
+633
+Shuai Bai, Yuxuan Cai, Ruizhe Chen, Keqin Chen,
+634
+Xionghui Chen, Zesen Cheng, Lianghao Deng, Wei
+635
+Ding, Chang Gao, Chunjiang Ge, Wenbin Ge, Zhi-
+636
+fang Guo, Qidong Huang, Jie Huang, Fei Huang,
+637
+Binyuan Hui, Shutong Jiang, Zhaohai Li, Mingsheng
+638
+Li, and 45 others. 2025a. Qwen3-vl technical report.
+639
+Preprint, arXiv:2511.21631.
+640
+Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wen-
+641
+bin Ge, Sibo Song, Kai Dang, Peng Wang, Shi-
+642
+jie Wang, Jun Tang, Humen Zhong, Yuanzhi Zhu,
+643
+Mingkun Yang, Zhaohai Li, Jianqiang Wan, Pengfei
+644
+Wang, Wei Ding, Zheren Fu, Yiheng Xu, and 8 oth-
+645
+ers. 2025b. Qwen2.5-vl technical report. Preprint,
+646
+arXiv:2502.13923.
+647
+Shih-Han Chou, Shivam Chandhok, Jim Little, and
+648
+Leonid Sigal. 2025. MM-r3: On (in-)consistency
+649
+of vision-language models (VLMs). In Findings of
+650
+the Association for Computational Linguistics: ACL
+651
+2025, pages 4762–4788, Vienna, Austria. Associa-
+652
+tion for Computational Linguistics.
+653
+Henghui Ding, Chang Liu, Shuting He, Xudong Jiang,
+654
+and Yu-Gang Jiang. 2026. Grex: Generalized refer-
+655
+ring expression segmentation, comprehension, and
+656
+generation. Int. J. Comput. Vision, 134(2).
+657
+Chaoyou Fu, Peixian Chen, Yunhang Shen, Yulei
+658
+Qin, Mengdan Zhang, Xu Lin, Jinrui Yang, Xiawu
+659
+8
+
+--- PAGE 9 ---
+Zheng, Ke Li, Xing Sun, Yunsheng Wu, Rongrong Ji,
+660
+Caifeng Shan, and Ran He. 2026. MME: A compre-
+661
+hensive evaluation benchmark for multimodal large
+662
+language models. In The Thirty-ninth Annual Con-
+663
+ference on Neural Information Processing Systems
+664
+Datasets and Benchmarks Track.
+665
+Yixiao He, Haifeng Sun, Pengfei Ren, Jingyu Wang,
+666
+Huazheng Wang, Qi Qi, Zirui Zhuang, and Jing
+667
+Wang. 2025. Evaluating and mitigating object hallu-
+668
+cination in large vision-language models: Can they
+669
+still see removed objects? In Proceedings of the 2025
+670
+Conference of the Nations of the Americas Chapter of
+671
+the Association for Computational Linguistics: Hu-
+672
+man Language Technologies (Volume 1: Long Pa-
+673
+pers), pages 6841–6858, Albuquerque, New Mexico.
+674
+Association for Computational Linguistics.
+675
+Bhathiya Hemanthage, Hakan Bilen, Phil Bartie, Chris-
+676
+tian Dondrup, and Oliver Lemon. 2024. RECANT-
+677
+Former: Referring expression comprehension with
+678
+varying numbers of targets. In Proceedings of the
+679
+2024 Conference on Empirical Methods in Natural
+680
+Language Processing, pages 21784–21798, Miami,
+681
+Florida, USA. Association for Computational Lin-
+682
+guistics.
+683
+Qidong Huang, Xiaoyi Dong, Pan Zhang, Bin Wang,
+684
+Conghui He, Jiaqi Wang, Dahua Lin, Weiming
+685
+Zhang, and Nenghai Yu. 2024. Opera: Alleviating
+686
+hallucination in multi-modal large language models
+687
+via over-trust penalty and retrospection-allocation.
+688
+Preprint, arXiv:2311.17911.
+689
+Sicong Leng, Hang Zhang, Guanzheng Chen, Xin
+690
+Li, Shijian Lu, Chunyan Miao, and Lidong Bing.
+691
+2023. Mitigating object hallucinations in large vision-
+692
+language models through visual contrastive decoding.
+693
+Preprint, arXiv:2311.16922.
+694
+Jidong Li, Lingyong Fang, Haodong Zhao, Sufeng
+695
+Duan, and Gongshen Liu. 2025. Judge before an-
+696
+swer: Can mllm discern the false premise in ques-
+697
+tion? Preprint, arXiv:2510.10965.
+698
+Kenneth Li, Oam Patel, Fernanda Viégas, Hanspeter
+699
+Pfister, and Martin Wattenberg. 2023a. Inference-
+700
+time intervention: Eliciting truthful answers from a
+701
+language model. In Advances in Neural Information
+702
+Processing Systems, volume 36, pages 41451–41530.
+703
+Curran Associates, Inc.
+704
+Yifan Li, Yifan Du, Kun Zhou, Jinpeng Wang, Xin Zhao,
+705
+and Ji-Rong Wen. 2023b. Evaluating object halluci-
+706
+nation in large vision-language models. In Proceed-
+707
+ings of the 2023 Conference on Empirical Methods in
+708
+Natural Language Processing, pages 292–305, Sin-
+709
+gapore. Association for Computational Linguistics.
+710
+Haotian Liu, Chunyuan Li, Yuheng Li, and Yong Jae
+711
+Lee. 2024. Improved baselines with visual instruc-
+712
+tion tuning. Preprint, arXiv:2310.03744.
+713
+Samuel Marks and Max Tegmark. 2024. The geometry
+714
+of truth: Emergent linear structure in large language
+715
+model representations of true/false datasets. Preprint,
+716
+arXiv:2310.06824.
+717
+Nina Rimsky, Nick Gabrieli, Julian Schulz, Meg Tong,
+718
+Evan Hubinger, and Alexander Turner. 2024. Steer-
+719
+ing llama 2 via contrastive activation addition. In
+720
+Proceedings of the 62nd Annual Meeting of the As-
+721
+sociation for Computational Linguistics (Volume 1:
+722
+Long Papers), pages 15504–15522, Bangkok, Thai-
+723
+land. Association for Computational Linguistics.
+724
+Jingran Su, Jingfan Chen, Hongxin Li, Yuntao Chen,
+725
+Li Qing, and Zhaoxiang Zhang. 2025. Activation
+726
+steering decoding: Mitigating hallucination in large
+727
+vision-language models through bidirectional hidden
+728
+state intervention. In Proceedings of the 63rd An-
+729
+nual Meeting of the Association for Computational
+730
+Linguistics (Volume 1: Long Papers), pages 12964–
+731
+12974, Vienna, Austria. Association for Computa-
+732
+tional Linguistics.
+733
+Gemma Team, Aishwarya Kamath, Johan Ferret, Shreya
+734
+Pathak, Nino Vieillard, Ramona Merhej, Sarah Perrin,
+735
+Tatiana Matejovicova, Alexandre Ramé, Morgane
+736
+Rivière, Louis Rouillard, Thomas Mesnard, Geoffrey
+737
+Cideron, Jean bastien Grill, Sabela Ramos, Edouard
+738
+Yvinec, Michelle Casbon, Etienne Pot, Ivo Penchev,
+739
+and 197 others. 2025. Gemma 3 technical report.
+740
+Preprint, arXiv:2503.19786.
+741
+Alexander Matt Turner, Lisa Thiergart, Gavin Leech,
+742
+David Udell, Juan J. Vazquez, Ulisse Mini, and
+743
+Monte MacDiarmid. 2024.
+Steering language
+744
+models with activation engineering.
+Preprint,
+745
+arXiv:2308.10248.
+746
+Junyang Wang, Yuhang Wang, Guohai Xu, Jing Zhang,
+747
+Yukai Gu, Haitao Jia, Jiaqi Wang, Haiyang Xu, Ming
+748
+Yan, Ji Zhang, and Jitao Sang. 2024. Amber: An
+749
+llm-free multi-dimensional benchmark for mllms hal-
+750
+lucination evaluation. Preprint, arXiv:2311.07397.
+751
+Weiyun Wang, Zhangwei Gao, Lixin Gu, Hengjun Pu,
+752
+Long Cui, Xingguang Wei, Zhaoyang Liu, Linglin
+753
+Jing, Shenglong Ye, Jie Shao, Zhaokai Wang, Zhe
+754
+Chen, Hongjie Zhang, Ganlin Yang, Haomin Wang,
+755
+Qi Wei, Jinhui Yin, Wenhao Li, Erfei Cui, and 56
+756
+others. 2025. Internvl3.5: Advancing open-source
+757
+multimodal models in versatility, reasoning, and effi-
+758
+ciency. Preprint, arXiv:2508.18265.
+759
+Yuanchen Wu, Lu Zhang, Hang Yao, Junlong Du,
+760
+Ke Yan, Shouhong Ding, Yunsheng Wu, and Xiao-
+761
+qiang Li. 2025. Antidote: A unified framework for
+762
+mitigating lvlm hallucinations in counterfactual pre-
+763
+supposition and object perception. In Proceedings of
+764
+the IEEE/CVF Conference on Computer Vision and
+765
+Pattern Recognition (CVPR), pages 14646–14656.
+766
+Haolei Xu, Xinyu Mei, Yuchen Yan, Rui Zhou, Wenqi
+767
+Zhang, Weiming Lu, Yueting Zhuang, and Yongliang
+768
+Shen. 2025. Easysteer: A unified framework for
+769
+high-performance and extensible llm steering. arXiv
+770
+preprint arXiv:2509.25175.
+771
+Heng Yin, Yuqiang Ren, Ke Yan, Shouhong Ding, and
+772
+Yongtao Hao. 2025. Rod-mllm: Towards more reli-
+773
+able object detection in multimodal large language
+774
+9
+
+--- PAGE 10 ---
+models. In 2025 IEEE/CVF Conference on Com-
+775
+puter Vision and Pattern Recognition (CVPR), pages
+776
+14358–14368.
+777
+Shukang Yin, Chaoyou Fu, Sirui Zhao, Tong Xu, Hao
+778
+Wang, Dianbo Sui, Yunhang Shen, Ke Li, Xing Sun,
+779
+and Enhong Chen. 2024. Woodpecker: hallucina-
+780
+tion correction for multimodal large language models.
+781
+Science China Information Sciences, 67(12).
+782
+Xiang Zhang, Senyu Li, Ning Shi, Bradley Hauer, Zijun
+783
+Wu, Grzegorz Kondrak, Muhammad Abdul-Mageed,
+784
+and Laks V. S. Lakshmanan. 2024. Cross-modal
+785
+consistency in multimodal large language models.
+786
+Preprint, arXiv:2411.09273.
+787
+Yiyang Zhou, Chenhang Cui, Jaehong Yoon, Linjun
+788
+Zhang, Zhun Deng, Chelsea Finn, Mohit Bansal, and
+789
+Huaxiu Yao. 2024. Analyzing and mitigating object
+790
+hallucination in large vision-language models. In In-
+791
+ternational Conference on Learning Representations,
+792
+volume 2024, pages 56969–56998.
+793
+Jinguo Zhu, Weiyun Wang, Zhe Chen, Zhaoyang Liu,
+794
+Shenglong Ye, Lixin Gu, Hao Tian, Yuchen Duan,
+795
+Weijie Su, Jie Shao, Zhangwei Gao, Erfei Cui, Xue-
+796
+hui Wang, Yue Cao, Yangzhou Liu, Xingguang Wei,
+797
+Hongjie Zhang, Haomin Wang, Weiye Xu, and 32
+798
+others. 2025. Internvl3: Exploring advanced train-
+799
+ing and test-time recipes for open-source multimodal
+800
+models. Preprint, arXiv:2504.10479.
+801
+Yongshuo Zong, Qin Zhang, Dongsheng An, Zhihua
+802
+Li, Xiang Xu, Linghan Xu, Zhuowen Tu, Yifan Xing,
+803
+and Onkar Dabeer. 2025. Ground-v: Teaching vlms
+804
+to ground complex instructions in pixels. Preprint,
+805
+arXiv:2505.13788.
+806
+10
+
+--- PAGE 11 ---
+A
+Layer Steering Configuration
+807
+This appendix reports the steering scales and layers
+808
+used for each model in our inference-time inter-
+809
+vention. For all models, we steer the same set of
+810
+intermediate layers, while the steering scales are
+811
+selected separately for each model family.
+812
+Table 2: Steering scales and selected layers used for
+each model.
+Model
+Steering scales
+Steered layers
+Qwen2.5-VL-7B-Instruct
+−0.8, −0.5, −0.2, 0.8, 1.0, 1.2
+7, 8, 9, 10, 11, 12, 13
+Qwen3-VL-8B-Instruct
+−0.3, −0.2, −0.1, 0.6, 0.8, 1.0
+7, 8, 9, 10, 11, 12, 13
+InternVL3-8B
+−0.8, −0.5, −0.2, 0.3, 0.5, 0.7
+7, 8, 9, 10, 11, 12, 13
+InternVL3.5-8B
+−0.8, −0.5, −0.2, 0.8, 1.5, 1.6
+7, 8, 9, 10, 11, 12, 13
+B
+Prompt Variants
+813
+This appendix lists the prompt variants used for
+814
+localization evaluation.
+We use model-specific
+815
+prompt formats to better match the instruction style
+816
+expected by each model family.
+817
+B.1
+Qwen Family
+818
+For Qwen models, we use natural-language local-
+819
+ization prompts. The target object is inserted into
+820
+the placeholder {object}.
+821
+1. Locate
+a/an
+{object}
+in
+the
+image
+822
+and identify its bounding box if it
+823
+exists.
+824
+2. Locate a/an {object} in the image and
+825
+identify its bounding box.
+826
+3. Search the image for a/an {object}
+827
+and provide its bounding box if it is
+828
+visible.
+829
+4. Detect all instances of {object} in
+830
+the image and return their locations
+831
+in the form of coordinates.
+832
+5. Identify
+a/an
+{object}
+within
+the
+833
+picture and provide its bounding box
+834
+if present.
+835
+B.2
+InternVL Family
+836
+For InternVL models, we follow the model’s
+837
+training-style referring-expression prompt format.
+838
+The target object is inserted into the placeholder
+839
+{object} and wrapped with <ref> tags.
+840
+1. Please
+provide
+the
+bounding
+box
+841
+coordinate
+of
+the
+region
+this
+842
+sentence
+describes:
+<ref>a/an
+843
+{object}</ref>
+844
+2. Please
+provide
+the
+bounding
+box
+845
+coordinate of the region this object
+846
+describes: <ref>a/an {object}</ref>
+847
+3. Please
+provide
+the
+bounding
+box
+848
+coordinate
+of
+the
+region
+for
+this
+849
+object
+if
+it
+exists:
+<ref>a/an
+850
+{object}</ref>
+851
+4. Return the bounding box coordinate of
+852
+the region where this object appears:
+853
+<ref>a/an {object}</ref>
+854
+5. Please
+provide
+all
+bounding
+box
+855
+coordinates
+of
+the
+regions
+where
+856
+this
+object
+is
+visible:
+<ref>a/an
+857
+{object}</ref>
+858
+C
+Ablation on Prompt Variants
+859
+We conduct an ablation study to examine whether
+860
+Existence–Localization Contradiction is sensitive
+861
+to the wording of the localization prompt. For
+862
+each model and dataset, we evaluate CELF across
+863
+multiple prompt variants and report the mean and
+864
+standard deviation in Table 3. The mean reflects
+865
+the overall tendency of a model to produce con-
+866
+tradictory localization outputs, while the standard
+867
+deviation captures prompt sensitivity.
+868
+The results show that contradiction behavior
+869
+varies substantially across model families. Qwen-
+870
+based models exhibit consistently higher CELF
+871
+scores, especially on AMBER and MME, indicat-
+872
+ing that they often produce non-null localization
+873
+outputs even after correctly judging the queried ref-
+874
+erent to be absent. The relatively large standard
+875
+deviations for Qwen3-VL-8B-Instruct further sug-
+876
+gest that its contradiction rate is sensitive to prompt
+877
+wording.
+878
+In contrast, InternVL models show much lower
+879
+CELF scores. InternVL3-8B produces near-zero
+880
+contradictions on POPE and MME, but remains
+881
+somewhat sensitive on AMBER and DASH-B.
+882
+InternVL3.5-8B achieves zero CELF across all
+883
+evaluated datasets and prompt variants, suggesting
+884
+stronger consistency between absence recognition
+885
+and localization behavior under this evaluation.
+886
+Overall, this ablation shows that Existence–
+887
+Localization Contradiction is not merely an artifact
+888
+of a single prompt template. The failure persists
+889
+across prompt variants for several strong VLMs,
+890
+while the degree of prompt sensitivity differs sub-
+891
+stantially across model families.
+892
+11
+
+--- PAGE 12 ---
+Table 3: Mean and standard deviation of CELF across different models and datasets.
+Model
+POPE
+AMBER
+MME
+DASH-B
+Mean
+Std.
+Mean
+Std.
+Mean
+Std.
+Mean
+Std.
+Qwen2.5-VL-7B-Instruct
+7.72
+3.12
+23.87
+7.28
+14.67
+7.18
+1.45
+0.80
+Qwen3-VL-8B-Instruct
+8.62
+8.08
+24.41
+16.13
+34.00
+18.55
+2.34
+1.11
+InternVL3-8B
+0.00
+0.00
+1.57
+1.83
+0.00
+0.00
+2.19
+2.53
+InternVL3.5-8B
+0.00
+0.00
+0.00
+0.00
+0.00
+0.00
+0.00
+0.00
+12

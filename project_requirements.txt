@@ -1,0 +1,145 @@
+COMP4020 / COMP5040 – Natural Language Processing Project
+Phase 2: Final Report & Code, and Individual Reflection (25%)
+
+Deadline: End of Week 14 (11:59pm), submit on GitHub and Canvas
+
+Purpose
+The report and code are the core of your NLP project. They demonstrate your ability to:
+Follow a complete NLP pipeline from start to finish
+Solve an NLP task using appropriate methods and models
+Produce clear, reproducible, and well-documented work
+Deliver a working NLP system that runs correctly and produces outputs
+Show continuous contribution through GitHub activity
+⚠️ Avoid uploading everything in one commit. Commit regularly to show progress.
+
+Phase 2 Marks
+
+A) Final Report & Code
+Writing Format and Page Limits
+Main Report (5–10 pages):
+Covers the full NLP workflow:
+Problem definition
+Dataset
+NLP pipeline
+Modelling
+Evaluation
+Results and discussion
+⚠️ All figures, tables, and outputs must be included within this limit
+
+Additional Pages (outside main report)
++1 page: Team information and contribution
++1/2 page per member: Individual reflection (max 250 words each)
++1 page: References
++1 page: Appendix (optional)
++1 page (Bonus only): Description of deployed NLP application
+⚠️ Content beyond these limits will not be marked
+Font: 12pt Times New Roman
+Margins: Normal (~2.5cm)
+
+Suggested Report Structure
+Title Page – Project title, team, members
+Introduction (1–2 pages)
+NLP task definition
+Dataset origin and description
+Motivation and challenges
+NLP Tasks / Research Questions (minimum 1 main task or 3 sub-questions)
+For each task or question:
+Introduction: Why it matters
+Approach: Methods (e.g. TF-IDF, embeddings, BERT)
+Analysis: Reproducible code and outputs
+Evaluation: Metrics (Accuracy, F1, BLEU, ROUGE, etc.)
+Discussion: Interpretation and limitations
+Conclusion (1–2 pages)
+Key findings
+Insights and implications
+Pipeline Reflection (1 page)
+Demonstrate how you followed the NLP pipeline:
+Preprocessing
+Representation
+Modelling
+Evaluation
+Team Contribution Statement (1 page)
+Individual Reflections
+References (1 page)
+Appendix (optional)
+
+Code and NLP System Requirement
+You must include a working NLP system:
+Must run end-to-end
+Must take input text and produce output
+Acceptable formats:
+Command-line tool
+Jupyter Notebook
+Simple interface
+This is a core requirement, not optional.
+
+GitHub and Code
+Repository must be clean, structured, and reproducible
+Suggested structure:
+/data/
+/scripts/
+/models/
+/report/
+Must show continuous contributions from all members
+Lack of contribution must be explained in the report
+⚠️ No commits after the deadline will be considered
+
+B) Individual Reflection (5%)
+Purpose
+Ensures each student demonstrates:
+Their contribution
+What they learned
+
+Writing Format
+Max 250 words per student
+First-person writing
+Included after main report
+
+Content
+Each student should cover:
+Role in the NLP project
+Contribution (e.g. preprocessing, modelling, evaluation)
+Challenges faced
+Skills and learning
+Future improvements
+
+Deliverables
+By Week 14:
+
+GitHub:
+report.pdf or report.docx
+All code and scripts
+Dataset in /data/ with /data/README.md
+Canvas:
+PDF (or docx) report
+GitHub link (included in report)
+
+Marking Rubric
+A) Final Report & Code (20%)
+Introduction (4%)
+NLP task clearly defined
+Dataset clearly described
+Each Task / Question (3 × 4% = 12%)
+Approach (1%) – justified NLP methods
+Code (1.5%) – correct, reproducible
+Visualisations (1%) – clear and relevant
+Discussion (0.5%) – meaningful insights
+Repository & Organisation (4%)
+Well-structured repo
+Working NLP system
+Reproducibility
+Clear team contribution
+
+B) Individual Reflection (5%)
+Completeness (2%)
+Clarity (2%)
+Authenticity (1%)
+
+Phase 2 Total = 25%
+
+If you want, I can also simplify this into a student-friendly checklist version or add a sample high-quality NLP project outline.
+
+Component | Description | Weight
+A) Final Report & Code | Written report + working NLP system | 20%
+B) Individual Reflection | 250 words per member | 5%
+Bonus Challenge (Optional) | Fully working NLP application | +5% (individual)

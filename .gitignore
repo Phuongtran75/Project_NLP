@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# LaTeX intermediate files (Beamer presentation)
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.html
+
+# Windows thumbnail cache
+Thumbs.db
+ehthumbs.db
+Desktop.ini
