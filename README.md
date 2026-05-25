@@ -105,13 +105,14 @@ Project_NLP/
 │   ├── figure1.png           # Contradiction example figure
 │   ├── figure2.png           # PCA hidden-state projection
 │   └── figure3.png           # Steering coefficient analysis
+├── presentation/
+│   ├── VLM_Contradictions_Presentation.tex  # Beamer presentation source
+│   └── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
 ├── figure1.png               # Contradiction example (root copy)
 ├── figure2.png               # PCA projection (root copy)
 ├── figure3.png               # Steering analysis (root copy)
 ├── paper_text.txt            # Reference paper text
 ├── project_requirements.txt  # Course requirements specification
-├── VLM_Contradictions_Presentation.tex  # Beamer presentation source
-├── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
 └── .gitignore
 ```
 
