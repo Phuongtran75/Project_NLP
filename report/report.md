@@ -2,7 +2,7 @@
 
 **Course Project Final Report (Phase 2)**  
 **COMP4020 / COMP5040 – Natural Language Processing**  
-**University Course V2025/2026**
+**VinUniversity**
 
 **Team Members & Contribution Roles:**
 1. **Nguyen Ba Thanh Bac** (Student ID: V202502001) – *Role: Preprocessing, Pipeline Architecture & Cross-Task Supervision*
