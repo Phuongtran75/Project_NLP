@@ -96,18 +96,28 @@ Project_NLP/
 ├── README.md                 # This file
 ├── data/
 │   └── README.md             # Dataset descriptions, schemas, and download instructions
-├── scripts/
-│   └── build_report.py       # Report compilation script (Markdown → DOCX)
+├── notebooks/
+│   ├── README.md             # Notebook descriptions and usage guide
+│   ├── inference.ipynb       # Main evaluation pipeline (Tasks 1 & 3)
+│   ├── create_hidden_state.ipynb   # Hidden state extraction (Task 2)
+│   └── create_steer_vectors.ipynb  # Steering vector construction (Task 3)
 ├── report/
 │   ├── report.md             # Full report in Markdown
-│   └── report.pdf            # Compiled PDF report
+│   ├── report.tex            # Full report in LaTeX
+│   ├── report.pdf            # Compiled PDF report
+│   ├── figure1.png           # Contradiction example figure
+│   ├── figure2.png           # PCA hidden-state projection
+│   └── figure3.png           # Steering coefficient analysis
 ├── figures/
 │   ├── figure1.png           # Contradiction example figure
 │   ├── figure2.png           # PCA hidden-state projection
 │   └── figure3.png           # Steering coefficient analysis
 ├── presentation/
 │   ├── VLM_Contradictions_Presentation.tex  # Beamer presentation source
-│   └── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
+│   ├── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
+│   ├── figure1.png           # Presentation figure assets
+│   ├── figure2.png
+│   └── figure3.png
 ├── paper_text.txt            # Reference paper text
 ├── project_requirements.txt  # Course requirements specification
 └── .gitignore
