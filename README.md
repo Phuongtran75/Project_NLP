@@ -100,8 +100,7 @@ Project_NLP/
 │   └── build_report.py       # Report compilation script (Markdown → DOCX)
 ├── report/
 │   ├── report.md             # Full report in Markdown
-│   ├── report.pdf            # Compiled PDF report
-│   └── report.docx           # Compiled DOCX report
+│   └── report.pdf            # Compiled PDF report
 ├── figures/
 │   ├── figure1.png           # Contradiction example figure
 │   ├── figure2.png           # PCA hidden-state projection

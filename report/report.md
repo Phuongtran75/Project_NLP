@@ -70,7 +70,38 @@ $$\text{NLP} = \frac{\sum_{i} \mathbb{I}(e_i = 0)\mathbb{I}(\hat{\ell}_i = 0)}{\
 $$\text{CELF} = \Pr(\hat{\ell}_i = 0 \mid e_i = 0, \hat{e}_i = 0) = \frac{\sum_{i \in \mathcal{N}} \mathbb{I}(\hat{e}_i = 0)\mathbb{I}(\hat{\ell}_i = 0)}{\sum_{i \in \mathcal{N}} \mathbb{I}(\hat{e}_i = 0)}$$
 A CELF of $1.0$ represents perfect consistency, while $0.0$ represents a complete failure where the model always draws a hallucinated bounding box despite knowing the object is absent.
 
-#### 2.1.3 Baseline Quantitative Results
+#### 2.1.3 Implementation & Code
+The full evaluation pipeline is implemented in `notebooks/inference.ipynb`. The core preprocessing step involves extracting the queried object from each benchmark's existence prompt using regular expressions, and then constructing a corresponding localization prompt. Below is the regex-based object extraction used for POPE and the multi-modal message construction:
+
+```python
+# Object extraction from existence prompts (notebooks/inference.ipynb)
+_PATTERN = re.compile(
+    r"^Is there a(?:n)? (?P<object>.+?) in the image\\?$",
+    re.IGNORECASE
+)
+
+def extract_object(sentence: str) -> Optional[str]:
+    match = _PATTERN.match(sentence.strip())
+    return match.group("object") if match else None
+
+# Construct multi-modal input for the VLM
+def process_message(image, prompt):
+    messages = [
+        {"role": "user", "content": [
+            {"type": "image"},
+            {"type": "text", "text": prompt},
+        ]}
+    ]
+    return {
+        "prompt": processor.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True),
+        "multi_modal_data": {"image": [image]},
+    }
+```
+
+For each benchmark, a dataset-specific extractor handles format differences (e.g., AMBER uses *"in this image"*, MME appends *"Please answer yes or no"*). The localization prompt is then constructed per model family: natural language for Qwen (*"Locate a/an {object} in the image and identify its bounding box if it exists"*) and `<ref>` tags for InternVL. The model's localization response is parsed for the presence of a bounding box coordinate to determine $\hat{\ell}_i$.
+
+#### 2.1.4 Baseline Quantitative Results
 We evaluate four state-of-the-art models: **Qwen2.5-VL-7B-Instruct**, **Qwen3-VL-8B-Instruct**, **InternVL3-8B**, and **InternVL3.5-8B** across POPE, AMBER, MME, and DASH-B.
 
 | Model | Metric | POPE | AMBER | MME | DASH-B |
@@ -80,7 +111,7 @@ We evaluate four state-of-the-art models: **Qwen2.5-VL-7B-Instruct**, **Qwen3-VL
 | **InternVL3-8B** | EA $\uparrow$<br>NLP $\uparrow$<br>**CELF** $\uparrow$ | 90.8%<br>0.0%<br>**0.0%** | 92.3%<br>0.0%<br>**0.0%** | 98.3%<br>0.0%<br>**0.0%** | 67.6%<br>0.0%<br>**0.0%** |
 | **InternVL3.5-8B** | EA $\uparrow$<br>NLP $\uparrow$<br>**CELF** $\uparrow$ | 86.7%<br>0.0%<br>**0.0%** | 88.5%<br>0.0%<br>**0.0%** | 100.0%<br>0.0%<br>**0.0%** | 68.9%<br>0.0%<br>**0.0%** |
 
-#### 2.1.4 Discussion & Insights
+#### 2.1.5 Discussion & Insights
 The quantitative results reveal a striking and systematic gap:
 1. **The InternVL Abstention Crisis**: Both InternVL3-8B and InternVL3.5-8B obtain a **CELF of 0.0%** across all four datasets. This indicates that these models *never* abstain under a localization query. Even when they possess perfect VQA perception (e.g., 100% EA on MME), they draw bounding boxes 100% of the time when asked to point to the absent entity.
 2. **Qwen's Moderate but Inadequate Consistency**: The Qwen family exhibits non-zero CELF scores, with Qwen3-VL reaching 50.0% on MME. However, on DASH-B, the CELF scores drop below 3.0% for both models, demonstrating that highly co-occurring absent distractors almost always override the models' semantic knowledge.
@@ -99,7 +130,39 @@ For each test sample $i \in \mathcal{N}$, we extract the model's hidden activati
 
 We apply **Principal Component Analysis (PCA)** to project these high-dimensional hidden states onto a 2D plane for visual inspection.
 
-#### 2.2.3 Latent Space Analysis & Visual Interpretation
+#### 2.2.3 Implementation & Code
+Hidden state extraction is implemented in `notebooks/create_hidden_state.ipynb`. We use EasySteer's `get_all_hidden_states_generate` function with vLLM to extract activations across all transformer layers, then isolate the last token position per sample:
+
+```python
+# Hidden state extraction (notebooks/create_hidden_state.ipynb)
+import easysteer.hidden_states as hs
+from vllm import LLM
+
+llm = LLM(
+    model="Qwen/Qwen2.5-VL-7B-Instruct",
+    tensor_parallel_size=1,
+    enforce_eager=True,
+    enable_chunked_prefill=False,
+    enable_prefix_caching=False
+)
+
+# Extract hidden states for all tokens
+batch_hidden_states, outputs = hs.get_all_hidden_states_generate(llm, prompts)
+
+# Keep only the last token's hidden state per layer
+all_hidden_states = []
+for hidden_state in batch_hidden_states:
+    hidden_state_by_layers = []
+    for layer in hidden_state:
+        hidden_state_by_layers.append(layer[-1, :])  # Last token
+    all_hidden_states.append(torch.stack(hidden_state_by_layers))
+all_hidden_states = torch.stack(all_hidden_states)
+torch.save(all_hidden_states.detach().cpu(), "hidden_states_tensor.pt")
+```
+
+The extracted tensors are then grouped by experimental condition (existence prompt, localization contradiction, localization faithfulness) and projected using `sklearn.decomposition.PCA` with `n_components=2`.
+
+#### 2.2.4 Latent Space Analysis & Visual Interpretation
 The PCA projection reveals two crucial topological properties:
 
 ```
@@ -124,7 +187,7 @@ The PCA projection reveals two crucial topological properties:
 
 ![Figure 2: PCA projection of hidden states at the final token position.](figure2.png)
 
-#### 2.2.4 Discussion
+#### 2.2.5 Discussion
 This probing analysis confirms our hypothesis: Existence-localization contradictions are caused by a representational disconnect. Grounding prompts place the model in a localized coordinate-generating regime that is blind to the semantic presence-knowledge stored in the VQA regime. This motivates a latent-space intervention to steer the model towards the semantic absence cluster during grounding queries.
 
 ### 2.3 Task 3: Lightweight Activation Steering Mitigation
@@ -144,7 +207,51 @@ This vector captures the linear direction in the latent space that encodes the s
 $$\tilde{h}^{(l)} = h^{(l)} + \alpha s^{(l)}$$
 where $\alpha \in \mathbb{R}$ is a scaling coefficient. We perform a grid search over layers $l \in [7, 13]$ and coefficients $\alpha$ to find the optimal configuration that maximizes CELF while preserving bounding-box accuracy on positive samples.
 
-#### 2.3.3 Steering Performance and Causal Evaluation
+#### 2.3.3 Implementation & Code
+Steering vector construction is implemented in `notebooks/create_steer_vectors.ipynb`, using EasySteer's `extract_diffmean_control_vector` function. The hidden states from contrastive pairs (hallucinated bounding-box response vs. correct abstention response) are loaded, and the DiffMean steering vector is computed:
+
+```python
+# Steering vector construction (notebooks/create_steer_vectors.ipynb)
+from easysteer.steer import extract_diffmean_control_vector
+
+all_hidden_states = torch.load("hidden_states_tensor.pt")
+positive_indices = [i for i in range(all_hidden_states.shape[0]) if i % 2 == 1]  # Abstention
+negative_indices = [i for i in range(all_hidden_states.shape[0]) if i % 2 == 0]  # Hallucination
+
+control_vector = extract_diffmean_control_vector(
+    all_hidden_states=all_hidden_states.unsqueeze(dim=2),
+    positive_indices=positive_indices,
+    negative_indices=negative_indices,
+    model_type="qwen2_5vl",
+    token_pos=-1,
+    normalize=False,
+)
+control_vector.export_gguf("steering_vector_diffmean.gguf")
+```
+
+At inference time (`notebooks/inference.ipynb`), the steering vector is injected via vLLM's `SteerVectorRequest` API with configurable scale and target layer:
+
+```python
+# Steering injection at inference time (notebooks/inference.ipynb)
+from vllm.steer_vectors.request import SteerVectorRequest
+
+baseline_request = SteerVectorRequest(
+    output_file_name,
+    steer_vector_local_path="steering_vector_diffmean.gguf",
+    scale=0.8,              # Steering coefficient alpha
+    target_layers=[10],     # Intervention layer
+    prefill_trigger_tokens=[-1],
+    generate_trigger_tokens=[-1]
+)
+
+outputs = llm.generate(messages,
+    steer_vector_request=baseline_request,
+    sampling_params=SamplingParams(max_tokens=512))
+```
+
+We perform a grid search over layers $l \in \{7, 8, 9, 10, 11, 12, 13\}$ and model-specific scaling coefficients $\alpha$ (see Appendix §8.1 for the full search space).
+
+#### 2.3.4 Steering Performance and Causal Evaluation
 By applying EasySteer (Xu et al., 2025) to compute and inject the steering direction, we obtain remarkable improvements across all models and benchmarks, as detailed in Table 1.
 
 * **Qwen2.5-VL-7B-Instruct (Steered)**:
@@ -169,7 +276,7 @@ By applying EasySteer (Xu et al., 2025) to compute and inject the steering direc
 
 ![Figure 3: Model performance under different steering coefficients.](figure3.png)
 
-#### 2.3.4 Discussion and Causal Verification
+#### 2.3.5 Discussion and Causal Verification
 Varying the scaling factor $\alpha$ reveals a robust, monotonic causal relationship:
 1. **Positive Steering ($\alpha > 0$)** consistently steers the model's representations toward the VQA-adjacent region, triggering abstention and driving CELF scores up (reaching over 70% for InternVL3-8B).
 2. **Negative Steering ($\alpha < 0$)** pushes the representations further away, destroying what little abstention capability existed and causing the model to return even more confident visual hallucinations.
@@ -243,13 +350,13 @@ gantt
 ## 6. Individual Reflections
 
 ### 6.1 Reflection by Nguyen Ba Thanh Bac (Preprocessing & Pipeline)
-"In this project, my primary role was setting up the pipeline architecture and pre-processing the diverse datasets. I designed the unified data loader and implemented regular expression patterns to extract bounding boxes from diverse output formats. A major challenge was parsing Qwen’s natural coordinates compared to InternVL’s `<ref>` XML tag format, which frequently caused string-index errors. Overcoming this taught me the importance of robust data sanitization and output validation in VLM evaluation. I gained deep knowledge of visual grounding benchmarks and learned how structural formatting impacts generative models. In the future, I plan to research structured schema constraints (like Instructor or Outlines) during decoding to completely prevent malformed coordinate generations." (120 words)
+"In this project, my primary role was setting up the pipeline architecture and pre-processing the diverse datasets for the conditional evaluation protocol. I designed the unified data loader that supports all four benchmarks (POPE, AMBER, MME, DASH-B) and implemented regular expression patterns to extract queried objects from existence prompts, as well as to parse bounding boxes from the model's diverse output formats. A major challenge was handling the different coordinate formats: Qwen outputs natural language JSON with `bbox_2d` keys, while InternVL uses `<ref>` XML tag format with normalized coordinates, which frequently caused string-index errors during batch processing. Debugging these edge cases across thousands of samples taught me the importance of robust data sanitization and output validation in large-scale VLM evaluation. Additionally, I implemented the two-stage conditional protocol that first runs existence queries, filters for correct absence predictions, and then evaluates the localization outputs to compute EA, NLP, and CELF. I gained deep knowledge of visual grounding benchmarks and learned how structural formatting impacts generative model outputs—a subtle factor that many evaluation papers overlook. I also gained experience working with vLLM for efficient batch inference on GPU clusters. In the future, I plan to research structured schema constraints (like Instructor or Outlines) during decoding to completely prevent malformed coordinate generations, and to explore streaming evaluation pipelines that can scale to larger benchmark suites." (215 words)
 
 ### 6.2 Reflection by Nguyen Thi Tra My (Latent Space Probing)
-"My responsibility was to probe the internal representational space of the models to understand the latent cause of the existence-localization contradiction. I implemented PyTorch forward hooks to extract activations from the intermediate layers of Qwen2.5-VL and performed PCA projections. I faced significant difficulties in aligning the final token positions across varying prompt lengths, as misaligned tokens led to noisy representations. Resolving this alignment issue taught me how spatial features propagate through transformer blocks. I gained hands-on experience in interpretability techniques, and learned how tasks are organized topologically in neural layers. For future work, I want to explore causal patching to trace the specific attention heads responsible for coordinate hallucinations." (121 words)
+"My responsibility was to probe the internal representational space of the models to understand the latent cause of the existence-localization contradiction. Using EasySteer's hidden state extraction API and vLLM, I implemented the pipeline in `create_hidden_state.ipynb` to extract activations from every transformer layer of Qwen2.5-VL-7B-Instruct. For each sample, I collected the hidden state vector at the final token position under both existence prompts and localization prompts, then categorized them into three experimental conditions: correct existence denial, contradictory localization (bounding box for absent object), and faithful null localization. I faced significant difficulties in aligning the final token positions across varying prompt lengths, as misaligned tokens led to noisy, overlapping representations in the PCA projections. Resolving this alignment issue by carefully padding and indexing the token positions taught me how spatial features propagate through transformer blocks. I then applied `sklearn.decomposition.PCA` with `n_components=2` to reduce the 3584-dimensional activation space and produced the visualization in Figure 2, which clearly revealed the representational disconnect between existence and localization regimes. The most surprising finding for me was that correct null-localization activations formed a distinct sub-cluster closer to the existence regime—confirming that when the model successfully abstains, it draws on semantic knowledge from the VQA pathway. I gained hands-on experience in mechanistic interpretability techniques, learned how multi-task representations are organized topologically in neural layers, and developed skills in high-dimensional visualization. For future work, I want to explore causal patching and activation patching to trace the specific attention heads responsible for coordinate hallucinations." (240 words)
 
 ### 6.3 Reflection by Tran Thi Hoai Phuong (Activation Steering)
-"As the steering and mitigation lead, I developed the lightweight inference-time steering engine. I integrated the EasySteer framework, computed the contrastive difference vectors, and injected the steering vector. My largest obstacle was managing the trade-off between increasing CELF on negative samples and preventing over-abstention on positive grounding tasks. Conducting a systematic grid search over layers 7-13 and coefficient $\alpha$ allowed me to identify the optimal layer-scale trade-off. This project deepened my understanding of representation engineering and causal latent manipulation without expensive fine-tuning. In the future, I will focus on developing dynamic, input-adaptive steering mechanisms that adjust $\alpha$ automatically based on model confidence." (115 words)
+"As the steering and mitigation lead, I developed the lightweight inference-time steering engine that forms the core contribution of our project. I integrated the EasySteer framework into our pipeline (`create_steer_vectors.ipynb` and `inference.ipynb`), constructing contrastive paired datasets of 100 examples where each pair contrasts a hallucinated bounding-box response with a correct abstention response for the same absent object. Using the `extract_diffmean_control_vector` function, I computed the steering direction as the mean difference between abstention and hallucination hidden states, and exported the resulting vectors as GGUF files for efficient loading during inference. My largest obstacle was managing the trade-off between increasing CELF on negative samples and preventing over-abstention on positive grounding tasks—too aggressive a steering coefficient caused the models to refuse localization even for objects that were genuinely present, degrading NLP scores. Conducting a systematic grid search over layers $l \in \{7, 8, ..., 13\}$ and model-specific coefficient ranges (e.g., $\alpha \in [-0.8, 1.2]$ for Qwen2.5-VL vs. $\alpha \in [-0.8, 1.6]$ for InternVL3.5) allowed me to identify the optimal layer-scale configuration for each model family. I also implemented the causal verification analysis (Figure 3), which demonstrated the monotonic relationship between steering strength and CELF. This project deepened my understanding of representation engineering and causal latent manipulation as a parameter-free alternative to expensive fine-tuning. In the future, I will focus on developing dynamic, input-adaptive steering mechanisms that adjust $\alpha$ automatically based on model uncertainty, and on extending the approach to other hallucination types beyond object existence." (245 words)
 
 ## 7. References
 
