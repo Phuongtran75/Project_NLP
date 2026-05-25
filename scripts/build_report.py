@@ -266,6 +266,37 @@ def main():
             i += 1
             continue
 
+        # Image handling
+        match_img = re.match(r'^!\[(.*?)\]\((.*?)\)$', line)
+        if match_img:
+            caption_text = match_img.group(1)
+            image_name = match_img.group(2)
+            img_path = os.path.join(r"f:\OneDrive\Phuong_2025\VIN\NLP\Project", image_name)
+            
+            if os.path.exists(img_path):
+                print(f"Embedding picture: {img_path}")
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.paragraph_format.space_before = Pt(8)
+                p_img.paragraph_format.space_after = Pt(2)
+                run_img = p_img.add_run()
+                
+                width_inches = 5.0 if "figure1" in image_name else 4.0
+                run_img.add_picture(img_path, width=Inches(width_inches))
+                
+                # Add caption
+                p_cap = doc.add_paragraph()
+                p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_cap.paragraph_format.space_before = Pt(2)
+                p_cap.paragraph_format.space_after = Pt(12)
+                p_cap.paragraph_format.keep_with_next = True
+                run_cap = p_cap.add_run(caption_text)
+                format_run(run_cap, italic=True, font_size=10, color_rgb=(100, 110, 120))
+            else:
+                print(f"Warning: Image {image_name} not found.")
+            i += 1
+            continue
+
         # Regular paragraphs
         if line:
             align = WD_ALIGN_PARAGRAPH.LEFT

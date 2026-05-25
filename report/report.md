@@ -20,6 +20,8 @@ Recent breakthroughs in multimodal Natural Language Processing (NLP) have witnes
 
 This dual capability is crucial for downstream multimodal NLP agents. However, this paper focuses on a critical, systematic vulnerability in VLMs: the **Existence-Localization Contradiction**. This failure occurs when a VLM correctly determines at a semantic level that an object is *absent* from an image (e.g., answering "No" to the VQA prompt *"Is there a dog in the image?"*), but still draws a bounding box coordinate when later asked to ground the same absent object (e.g., drawing a box when prompted *"Locate the dog in the image"*). This represents a severe violation of logical coherence, posing critical safety risks in autonomous systems, robotics, and agentic workflows where spatial commitments trigger physical actions.
 
+![Figure 1: An example of Existence-Localization Contradiction.](figure1.png)
+
 ### 1.2 Dataset Origins and Description
 To thoroughly evaluate the existence-localization contradiction, our project leverages four diverse benchmarks that focus on object-existence and visual hallucination:
 * **POPE (Polite Object Presence Evaluation)** (Li et al., 2023b): Built on MS COCO, this benchmark queries models on the presence/absence of objects under random, popular, and adversarial settings. We isolate the negative subsets (absent objects).
@@ -126,6 +128,8 @@ The PCA projection reveals two crucial topological properties:
 1. **Task Representation Separation**: There is a stark spatial division between existence query activations ($H_{exist}$) and localization query activations ($H_{loc\_box}$). This separation proves that the VLM enters completely different "representational regimes" based on prompt structure. Multi-task pretraining has failed to construct a unified concept of "object presence" that bridges semantic QA and spatial grounding.
 2. **Proximity of Correct Rejections**: Critically, the hidden states of correct null-localizations ($H_{loc\_null}$) form a distinct sub-cluster that lies significantly closer to the VQA cluster ($H_{exist}$). When the model succeeds in abstaining, its internal representations are pulled towards the semantic existence regime, leveraging the knowledge that the object is absent to override the default grounding reflex.
 
+![Figure 2: PCA projection of hidden states at the final token position.](figure2.png)
+
 #### 2.2.4 Discussion
 This probing analysis confirms our hypothesis: Existence-localization contradictions are caused by a representational disconnect. Grounding prompts place the model in a localized coordinate-generating regime that is blind to the semantic presence-knowledge stored in the VQA regime. This motivates a latent-space intervention to steer the model towards the semantic absence cluster during grounding queries.
 
@@ -170,6 +174,8 @@ By applying EasySteer (Xu et al., 2025) to compute and inject the steering direc
      0 |---+---+---+---+---+---+---+---+---+---> Scale α
          -0.8 -0.5 -0.2 0.0 0.4 0.8 1.2 1.6
 ```
+
+![Figure 3: Model performance under different steering coefficients.](figure3.png)
 
 #### 2.3.4 Discussion and Causal Verification
 Varying the scaling factor $\alpha$ reveals a robust, monotonic causal relationship:
