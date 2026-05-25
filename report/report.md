@@ -5,13 +5,11 @@
 **University Course V2025/2026**
 
 **Team Members & Contribution Roles:**
-1. **Nguyen Ba Thanh Bac** (Student ID: V202502001) – *Role: Activation Steering & Mitigation*
+1. **Nguyen Ba Thanh Bac** (Student ID: V202502001) – *Role: Preprocessing & Pipeline Architecture*
 2. **Nguyen Thi Tra My** (Student ID: V202502002) – *Role: Latent Space Probing & Probing Visualization*
-3. **Tran Thi Hoai Phuong** (Student ID: V202502962) – *Role: Preprocessing & Pipeline Architecture*
+3. **Tran Thi Hoai Phuong** (Student ID: V202502962) – *Role: Activation Steering & Mitigation*
 
-**GitHub Repository URL:** [https://github.com/Phuongtran75/Project_NLP](https://github.com/Phuongtran75/Project_NLP)
-
----
+**GitHub Repository URL:** https://github.com/Phuongtran75/Project_NLP/tree/main
 
 ## 1. Introduction
 
@@ -35,8 +33,6 @@ The challenges are threefold:
 1. **Representational Gap**: Spatial grounding and VQA are often treated as distinct task formats, leading to separate representational regimes within the model's layers.
 2. **Abstention Deficit**: Strong open-source VLMs are heavily fine-tuned to *always* output coordinates when prompted, making them highly resistant to refuting/abstaining under grounding prompts.
 3. **Inference Efficiency**: Mitigating these contradictions must not involve expensive parameter fine-tuning, which would degrade standard visual-grounding performance on positive samples.
-
----
 
 ## 2. Research Questions and NLP Tasks
 
@@ -90,8 +86,6 @@ The quantitative results reveal a striking and systematic gap:
 2. **Qwen's Moderate but Inadequate Consistency**: The Qwen family exhibits non-zero CELF scores, with Qwen3-VL reaching 50.0% on MME. However, on DASH-B, the CELF scores drop below 3.0% for both models, demonstrating that highly co-occurring absent distractors almost always override the models' semantic knowledge.
 3. **Conclusion on Task 1**: High existence accuracy is entirely insufficient to guarantee faithful localization behavior. Models possess the semantic knowledge of absence but fail to carry it into spatial grounding tasks.
 
----
-
 ### 2.2 Task 2: Latent Representation Probing
 
 #### 2.2.1 Introduction
@@ -132,8 +126,6 @@ The PCA projection reveals two crucial topological properties:
 
 #### 2.2.4 Discussion
 This probing analysis confirms our hypothesis: Existence-localization contradictions are caused by a representational disconnect. Grounding prompts place the model in a localized coordinate-generating regime that is blind to the semantic presence-knowledge stored in the VQA regime. This motivates a latent-space intervention to steer the model towards the semantic absence cluster during grounding queries.
-
----
 
 ### 2.3 Task 3: Lightweight Activation Steering Mitigation
 
@@ -183,8 +175,6 @@ Varying the scaling factor $\alpha$ reveals a robust, monotonic causal relations
 2. **Negative Steering ($\alpha < 0$)** pushes the representations further away, destroying what little abstention capability existed and causing the model to return even more confident visual hallucinations.
 3. **Preservation of Utility**: Crucially, because the steering vector is highly localized to intermediate layers (layers 7–13), the model's capability to ground *present* objects (positive samples) is largely preserved, proving that we have isolated the specific representational pathway of task-consistent refusal.
 
----
-
 ## 3. Conclusion
 
 ### 3.1 Key Findings
@@ -197,8 +187,6 @@ This study has deep implications for building robust multimodal agents. If a rob
 * Avoid training grounding as a pure coordinate-regression task.
 * Incorporate negative-grounding contrastive samples directly in pretraining.
 * Utilize inference-time activation steering as a parameter-free guardrail to enforce semantic consistency.
-
----
 
 ## 4. Pipeline Reflection
 
@@ -229,8 +217,6 @@ As a team, we structured our work to strictly mirror the core phases of the NLP 
 * **Implementation**: We implemented the conditional evaluation protocol to measure EA, NLP, and CELF. We also conducted prompt-template ablation studies to ensure results were not an artifact of template wording.
 * **Challenge**: Building an end-to-end reproducible pipeline that could load three distinct model families and evaluate them consistently on four benchmarks.
 
----
-
 ## 5. Team Contribution Statement
 
 The team worked collaboratively under a clear separation of concerns, ensuring continuous contribution and seamless integration into the final repository:
@@ -250,24 +236,20 @@ gantt
     Grid Search over Scale & Layers     :active, 2026-05-21, 2026-05-24
 ```
 
-* **Nguyen Ba Thanh Bac (Activation Steering)**: Designed the latent steering algorithm. Integrated EasySteer to construct contrastive steer directions. Conducted the grid search over scaling factor $\alpha$ and layers, and built the final interactive Jupyter Playground.
+* **Nguyen Ba Thanh Bac (Preprocessing & Pipeline)**: Set up the repository architecture (`/data/`, `/scripts/`, `/report/`). Developed the regex coordinate parser and dataset loaders for POPE, AMBER, MME, and DASH-B. Coded the 2-Stage Conditional Protocol and evaluated baseline performance.
 * **Nguyen Thi Tra My (Latent Space Probing)**: Built PyTorch hooks to extract hidden activations from Intermediate layers. Implemented the PCA dimensionality reduction module and generated the task representational clustering plots.
-* **Tran Thi Hoai Phuong (Preprocessing & Pipeline)**: Set up the repository architecture (`/data/`, `/scripts/`, `/report/`). Developed the regex coordinate parser and dataset loaders for POPE, AMBER, MME, and DASH-B. Coded the 2-Stage Conditional Protocol and evaluated baseline performance.
-
----
+* **Tran Thi Hoai Phuong (Activation Steering)**: Designed the latent steering algorithm. Integrated EasySteer to construct contrastive steer directions. Conducted the grid search over scaling factor $\alpha$ and layers, and built the final interactive Jupyter Playground.
 
 ## 6. Individual Reflections
 
-### 6.1 Reflection by Nguyen Ba Thanh Bac (Activation Steering)
-"As the steering and mitigation lead, I developed the lightweight inference-time steering engine. I integrated the EasySteer framework, computed the contrastive difference vectors, and injected the steering vector. My largest obstacle was managing the trade-off between increasing CELF on negative samples and preventing over-abstention on positive grounding tasks. Conducting a systematic grid search over layers 7-13 and coefficient $\alpha$ allowed me to identify the optimal layer-scale trade-off. This project deepened my understanding of representation engineering and causal latent manipulation without expensive fine-tuning. In the future, I will focus on developing dynamic, input-adaptive steering mechanisms that adjust $\alpha$ automatically based on model confidence." (115 words)
+### 6.1 Reflection by Nguyen Ba Thanh Bac (Preprocessing & Pipeline)
+"In this project, my primary role was setting up the pipeline architecture and pre-processing the diverse datasets. I designed the unified data loader and implemented regular expression patterns to extract bounding boxes from diverse output formats. A major challenge was parsing Qwen’s natural coordinates compared to InternVL’s `<ref>` XML tag format, which frequently caused string-index errors. Overcoming this taught me the importance of robust data sanitization and output validation in VLM evaluation. I gained deep knowledge of visual grounding benchmarks and learned how structural formatting impacts generative models. In the future, I plan to research structured schema constraints (like Instructor or Outlines) during decoding to completely prevent malformed coordinate generations." (120 words)
 
 ### 6.2 Reflection by Nguyen Thi Tra My (Latent Space Probing)
 "My responsibility was to probe the internal representational space of the models to understand the latent cause of the existence-localization contradiction. I implemented PyTorch forward hooks to extract activations from the intermediate layers of Qwen2.5-VL and performed PCA projections. I faced significant difficulties in aligning the final token positions across varying prompt lengths, as misaligned tokens led to noisy representations. Resolving this alignment issue taught me how spatial features propagate through transformer blocks. I gained hands-on experience in interpretability techniques, and learned how tasks are organized topologically in neural layers. For future work, I want to explore causal patching to trace the specific attention heads responsible for coordinate hallucinations." (121 words)
 
-### 6.3 Reflection by Tran Thi Hoai Phuong (Preprocessing & Pipeline)
-"In this project, my primary role was setting up the pipeline architecture and pre-processing the diverse datasets. I designed the unified data loader and implemented regular expression patterns to extract bounding boxes from diverse output formats. A major challenge was parsing Qwen’s natural coordinates compared to InternVL’s `<ref>` XML tag format, which frequently caused string-index errors. Overcoming this taught me the importance of robust data sanitization and output validation in VLM evaluation. I gained deep knowledge of visual grounding benchmarks and learned how structural formatting impacts generative models. In the future, I plan to research structured schema constraints (like Instructor or Outlines) during decoding to completely prevent malformed coordinate generations." (120 words)
-
----
+### 6.3 Reflection by Tran Thi Hoai Phuong (Activation Steering)
+"As the steering and mitigation lead, I developed the lightweight inference-time steering engine. I integrated the EasySteer framework, computed the contrastive difference vectors, and injected the steering vector. My largest obstacle was managing the trade-off between increasing CELF on negative samples and preventing over-abstention on positive grounding tasks. Conducting a systematic grid search over layers 7-13 and coefficient $\alpha$ allowed me to identify the optimal layer-scale trade-off. This project deepened my understanding of representation engineering and causal latent manipulation without expensive fine-tuning. In the future, I will focus on developing dynamic, input-adaptive steering mechanisms that adjust $\alpha$ automatically based on model confidence." (115 words)
 
 ## 7. References
 
@@ -280,8 +262,6 @@ gantt
 * Wang, W., Gao, Z., Gu, L., Pu, H., Cui, L., et al. (2025). Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. *arXiv preprint arXiv:2508.18265*.
 * Xu, H., Mei, X., Yan, Y., Zhou, R., Zhang, W., et al. (2025). Easysteer: A unified framework for high-performance and extensible llm steering. *arXiv preprint arXiv:2509.25175*.
 * Zhu, J., Wang, W., Chen, Z., Liu, Z., Ye, S., et al. (2025). Internvl3: Exploring advanced training and test-time recipes for open-source multimodal models. *arXiv preprint arXiv:2504.10479*.
-
----
 
 ## 8. Appendix
 
