@@ -1,4 +1,4 @@
-# Cross-Task Semantic Contradictions in Vision-Language Models: Evaluating and Mitigating the Existence-Localization Gap
+# Know It's Absent, Yet Point Anyway: Cross-Task Semantic Contradictions in Vision-Language Models
 
 **Course Project Final Report (Phase 2)**  
 **COMP4020 / COMP5040 – Natural Language Processing**  

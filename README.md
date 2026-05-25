@@ -1,4 +1,4 @@
-# Know It's Absent, Yet Point Anyway: Existence–Localization Contradictions in Vision-Language Models
+# Know It's Absent, Yet Point Anyway: Cross-Task Semantic Contradictions in Vision-Language Models
 
 > **COMP4020 / COMP5040 – Natural Language Processing**  
 > Course Project – Phase 2: Final Report & Code
