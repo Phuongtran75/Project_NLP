@@ -104,20 +104,14 @@ Project_NLP/
 ├── report/
 │   ├── report.md             # Full report in Markdown
 │   ├── report.tex            # Full report in LaTeX
-│   ├── report.pdf            # Compiled PDF report
-│   ├── figure1.png           # Contradiction example figure
-│   ├── figure2.png           # PCA hidden-state projection
-│   └── figure3.png           # Steering coefficient analysis
+│   └── report.pdf            # Compiled PDF report
 ├── figures/
 │   ├── figure1.png           # Contradiction example figure
 │   ├── figure2.png           # PCA hidden-state projection
 │   └── figure3.png           # Steering coefficient analysis
 ├── presentation/
 │   ├── VLM_Contradictions_Presentation.tex  # Beamer presentation source
-│   ├── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
-│   ├── figure1.png           # Presentation figure assets
-│   ├── figure2.png
-│   └── figure3.png
+│   └── VLM_Contradictions_Presentation.pdf  # Compiled presentation slides
 ├── paper_text.txt            # Reference paper text
 ├── project_requirements.txt  # Course requirements specification
 └── .gitignore
