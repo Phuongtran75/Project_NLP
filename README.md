@@ -19,7 +19,7 @@ We study a critical failure mode: a VLM correctly answers *"No"* when asked *"Is
 
 | Name | Student ID | Role |
 |:---|:---|:---|
-| Nguyen Ba Thanh Bac | V202502001 | Preprocessing & Pipeline Architecture |
+| Nguyen Ba Thanh Bac | V202502001 | Preprocessing, Pipeline & Cross-Task Supervision |
 | Nguyen Thi Tra My | V202502002 | Latent Space Probing & Visualization |
 | Tran Thi Hoai Phuong | V202502962 | Activation Steering & Mitigation |
 
@@ -54,7 +54,7 @@ For each image–object pair where the object is **absent**:
 We compute a **steering vector** from contrastive paired outputs (hallucinated bbox vs. correct abstention) and inject it additively into hidden states at inference time:
 
 ```
-s(l) = mean(h_abs - h_loc)      # steering direction
+s(l) = mean(h_abs) - mean(h_loc)  # steering direction
 h̃(l) = h(l) + α · s(l)          # inference-time intervention
 ```
 
