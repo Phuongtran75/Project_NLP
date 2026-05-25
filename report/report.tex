@@ -3,10 +3,13 @@
 % ── Geometry & Margins ──
 \usepackage[margin=2.5cm]{geometry}
 
-% ── Fonts ──
-\usepackage{times}
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
+% ── Fonts (XeLaTeX) ──
+\usepackage{fontspec}
+\setmainfont{Times New Roman}[
+  BoldFont={Times New Roman Bold},
+  ItalicFont={Times New Roman Italic},
+]
+\setmonofont{Courier New}[Scale=0.85]
 
 % ── Math ──
 \usepackage{amsmath,amssymb,amsfonts}
@@ -37,7 +40,7 @@
   rulecolor=\color{gray!40},
   backgroundcolor=\color{gray!5},
   breaklines=true,
-  breakatwhitespace=true,
+  breakatwhitespace=false,
   showstringspaces=false,
   tabsize=4,
   xleftmargin=1.5em,
@@ -45,7 +48,12 @@
   aboveskip=10pt,
   belowskip=8pt,
   captionpos=b,
+  columns=flexible,
+  keepspaces=true,
 }
+
+% ── Graphics path ──
+\graphicspath{{../figures/}{./}}
 
 % ── Hyperlinks ──
 \usepackage[colorlinks=true,linkcolor=MidnightBlue,urlcolor=MidnightBlue,citecolor=MidnightBlue]{hyperref}
@@ -217,7 +225,7 @@ def process_message(image, prompt):
     }
 \end{lstlisting}
 
-For each benchmark, a dataset-specific extractor handles format differences (e.g., AMBER uses \textit{``in this image''}, MME appends \textit{``Please answer yes or no''}). The localization prompt is then constructed per model family: natural language for Qwen and \texttt{<ref>} tags for InternVL.
+For each benchmark, a dataset-specific extractor handles format differences (e.g., AMBER uses \textit{``in this image''}, MME appends \textit{``Please answer yes or no''}). The localization prompt is then constructed per model family: natural language for Qwen and \texttt{\textless ref\textgreater} tags for InternVL.
 
 \subsubsection{Baseline Quantitative Results}
 We evaluate four state-of-the-art models across four benchmarks. Results are shown in Table~\ref{tab:baseline}.
@@ -472,7 +480,7 @@ This study has deep implications for building robust multimodal agents. If a rob
 As a team, we structured our work to strictly mirror the core phases of the NLP pipeline:
 
 \subsection{Preprocessing}
-\textbf{Implementation}: We handled diverse template alignments. For Qwen, we used natural language instructions. For InternVL, we structured referring expression templates with \texttt{<ref>} tags.\\
+\textbf{Implementation}: We handled diverse template alignments. For Qwen, we used natural language instructions. For InternVL, we structured referring expression templates with \texttt{\textless ref\textgreater} tags.\\
 \textbf{Challenge}: Bounding boxes are output in different formats (e.g., normalized $[0, 1000]$ vs $[0, 1]$). Preprocessing required building robust regular expression parsers to standardize coordinate extraction.
 
 \subsection{Representation}
@@ -506,7 +514,7 @@ The team worked collaboratively under a clear separation of concerns, ensuring c
 \subsection{Reflection by Nguyen Ba Thanh Bac}
 \textit{(Preprocessing, Pipeline \& Cross-Task Supervision)}
 
-``In this project, I served a dual role: I was the primary developer for the preprocessing and pipeline architecture (Task 1), and I also acted as the cross-task supervisor for the latent space probing (Task 2) and activation steering (Task 3) workstreams. For Task 1, I designed the unified data loader supporting all four benchmarks (POPE, AMBER, MME, DASH-B) and implemented regular expression patterns to extract queried objects from existence prompts, as well as to parse bounding boxes from the model's diverse output formats. A major challenge was handling the different coordinate formats: Qwen outputs natural language JSON with \texttt{bbox\_2d} keys, while InternVL uses \texttt{<ref>} XML tag format with normalized coordinates, which frequently caused string-index errors during batch processing. I also implemented the two-stage conditional protocol that computes EA, NLP, and CELF. Beyond Task 1, I supervised and reviewed the outputs of Tasks 2 and 3. For Task 2, I validated the PCA probing results by checking that the clustering topology was consistent across different random seeds and layer choices, and I helped My debug token alignment issues that caused noisy projections. For Task 3, I independently verified the steering intervention results by cross-checking CELF improvements against the baseline and running ablation checks to confirm the improvements were genuine rather than artifacts of prompt wording. This supervisory role taught me how to critically evaluate experimental results, ensure reproducibility, and maintain scientific rigor across a multi-person research project. I gained deep knowledge of visual grounding benchmarks, vLLM batch inference, and latent-space interpretability. In the future, I plan to research structured schema constraints during decoding and to explore dynamic, input-adaptive evaluation pipelines.'' (250 words)
+``In this project, I served a dual role: I was the primary developer for the preprocessing and pipeline architecture (Task 1), and I also acted as the cross-task supervisor for the latent space probing (Task 2) and activation steering (Task 3) workstreams. For Task 1, I designed the unified data loader supporting all four benchmarks (POPE, AMBER, MME, DASH-B) and implemented regular expression patterns to extract queried objects from existence prompts, as well as to parse bounding boxes from the model's diverse output formats. A major challenge was handling the different coordinate formats: Qwen outputs natural language JSON with \texttt{bbox\_2d} keys, while InternVL uses \texttt{\textless ref\textgreater} XML tag format with normalized coordinates, which frequently caused string-index errors during batch processing. I also implemented the two-stage conditional protocol that computes EA, NLP, and CELF. Beyond Task 1, I supervised and reviewed the outputs of Tasks 2 and 3. For Task 2, I validated the PCA probing results by checking that the clustering topology was consistent across different random seeds and layer choices, and I helped My debug token alignment issues that caused noisy projections. For Task 3, I independently verified the steering intervention results by cross-checking CELF improvements against the baseline and running ablation checks to confirm the improvements were genuine rather than artifacts of prompt wording. This supervisory role taught me how to critically evaluate experimental results, ensure reproducibility, and maintain scientific rigor across a multi-person research project. I gained deep knowledge of visual grounding benchmarks, vLLM batch inference, and latent-space interpretability. In the future, I plan to research structured schema constraints during decoding and to explore dynamic, input-adaptive evaluation pipelines.'' (250 words)
 
 \subsection{Reflection by Nguyen Thi Tra My}
 \textit{(Latent Space Probing)}
@@ -550,11 +558,11 @@ To ensure the existence-localization contradiction was not an artifact of a sing
 
 \subsection{InternVL Referring Expression Templates}
 \begin{enumerate}
-\item \textit{``Please provide the bounding box coordinate of the region this sentence describes: \texttt{<ref>}a/an \{object\}\texttt{</ref>}''} (Default)
-\item \textit{``Please provide the bounding box coordinate of the region this object describes: \texttt{<ref>}a/an \{object\}\texttt{</ref>}''}
-\item \textit{``Please provide the bounding box coordinate of the region for this object if it exists: \texttt{<ref>}a/an \{object\}\texttt{</ref>}''}
-\item \textit{``Return the bounding box coordinate of the region where this object appears: \texttt{<ref>}a/an \{object\}\texttt{</ref>}''}
-\item \textit{``Please provide all bounding box coordinates of the regions where this object is visible: \texttt{<ref>}a/an \{object\}\texttt{</ref>}''}
+\item \textit{``Please provide the bounding box coordinate of the region this sentence describes: \texttt{\textless ref\textgreater}a/an \{object\}\texttt{\textless/ref\textgreater}''} (Default)
+\item \textit{``Please provide the bounding box coordinate of the region this object describes: \texttt{\textless ref\textgreater}a/an \{object\}\texttt{\textless/ref\textgreater}''}
+\item \textit{``Please provide the bounding box coordinate of the region for this object if it exists: \texttt{\textless ref\textgreater}a/an \{object\}\texttt{\textless/ref\textgreater}''}
+\item \textit{``Return the bounding box coordinate of the region where this object appears: \texttt{\textless ref\textgreater}a/an \{object\}\texttt{\textless/ref\textgreater}''}
+\item \textit{``Please provide all bounding box coordinates of the regions where this object is visible: \texttt{\textless ref\textgreater}a/an \{object\}\texttt{\textless/ref\textgreater}''}
 \end{enumerate}
 
 \end{document}
