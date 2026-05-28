@@ -19,9 +19,9 @@ We study a critical failure mode: a VLM correctly answers *"No"* when asked *"Is
 
 | Name | Student ID | Role |
 |:---|:---|:---|
-| Nguyen Ba Thanh Bac | V202502001 | Preprocessing, Pipeline & Cross-Task Supervision |
+| Tran Thi Hoai Phuong | V202502001 | Preprocessing, Pipeline|
 | Nguyen Thi Tra My | V202502002 | Latent Space Probing & Visualization |
-| Tran Thi Hoai Phuong | V202502962 | Activation Steering & Mitigation |
+| Nguyen Ba Thanh Bac | V202502962 | Activation Steering & Mitigation and overall supervisor |
 
 ## Research Questions
 
